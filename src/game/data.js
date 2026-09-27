@@ -53,6 +53,7 @@ export function unlocksFor(day) {
     tables: now.tables,
     customers: now.customers,
     dishes: DISHES.filter(d => d.day === day),
+    decor: DECOR_STEPS.filter(d => d.day === day),
   };
 }
 
@@ -74,11 +75,11 @@ export const UPGRADES = [
 
 // Thuốc: mua ở shop, dùng trong ngày (bấm nút hoặc phím 1/2/3)
 export const POTIONS = [
-  { id: 'speed', icon: '⚡', name: 'Thuốc chạy nhanh', desc: 'Penny chạy nhanh gấp đôi trong 20 giây', cost: 25, duration: 20 },
+  { id: 'speed', icon: '⚡', name: 'Thuốc chạy nhanh', desc: 'Penny chạy nhanh gấp 2,5 lần trong 20 giây', cost: 25, duration: 20 },
   { id: 'cook',  icon: '🔥', name: 'Thuốc nấu nhanh',  desc: 'Bếp lên món nhanh gấp 3 trong 20 giây',  cost: 30, duration: 20 },
   { id: 'joy',   icon: '💖', name: 'Thuốc vui vẻ',     desc: 'Tất cả khách được đầy lại ♥ ngay',       cost: 35, duration: 0 },
 ];
-export const SPEED_BOOST = 2, COOK_BOOST = 3;
+export const SPEED_BOOST = 2.5, COOK_BOOST = 3;
 
 // Hai bố cục: ngang (máy tính / điện thoại xoay ngang) và dọc (điện thoại cầm dọc).
 // Logic game giống nhau, chỉ khác toạ độ. `tables` xếp theo thứ tự mở khoá.
@@ -114,6 +115,20 @@ export const LAYOUTS = {
     hint: { x: 300, y: 930 }, banner: { x: 300, y: 196 },
   },
 };
+
+// Nhà hàng tự đẹp dần lên theo ngày (không cần mua): mỗi mốc thêm một kiểu trang trí
+export const DECOR_STEPS = [
+  { id: 'bunting', day: 2,  icon: '🎏', name: 'Cờ dây sặc sỡ' },
+  { id: 'flowers', day: 3,  icon: '🌷', name: 'Lọ hoa trên bàn' },
+  { id: 'lights',  day: 4,  icon: '💡', name: 'Dây đèn lấp lánh' },
+  { id: 'wood',    day: 5,  icon: '🪵', name: 'Sàn gỗ ấm áp' },
+  { id: 'velvet',  day: 6,  icon: '🪑', name: 'Ghế nhung & khăn bàn ren' },
+  { id: 'rugs',    day: 7,  icon: '🟣', name: 'Thảm tròn dưới bàn' },
+  { id: 'marble',  day: 8,  icon: '🏛️', name: 'Quầy đá cẩm thạch viền vàng' },
+  { id: 'aurora',  day: 9,  icon: '🌌', name: 'Cực quang & bụi lấp lánh' },
+  { id: 'carpet',  day: 10, icon: '👑', name: 'Thảm đỏ đón khách VIP' },
+];
+export const hasDecor = (day, id) => DECOR_STEPS.some(d => d.id === id && d.day <= day);
 
 export const WAITING = ['arriving', 'queue', 'order', 'waitFood', 'pay'];
 

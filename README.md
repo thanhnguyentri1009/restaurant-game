@@ -15,6 +15,19 @@ yarn preview  # xem bản đã đóng gói
 Chạy `yarn dev` trên máy tính, rồi mở địa chỉ **Network** mà Vite in ra (ví dụ `http://192.168.1.5:5173`)
 bằng trình duyệt điện thoại **cùng mạng Wi-Fi**. Cầm dọc hay xoay ngang đều chơi được (mỗi hướng có bố cục riêng); nút ⛶ để bật toàn màn hình.
 
+### Lưu tiến trình lên Firestore (tuỳ chọn)
+Không cần đăng nhập: người chơi nhập **username** ở màn hình bắt đầu, tiến trình được lưu vào
+document `{username}/progress` (và vẫn lưu localStorage như cũ). Username được nhớ trên máy,
+nhập cùng username ở máy khác để chơi tiếp.
+
+1. Tạo project trên [Firebase Console](https://console.firebase.google.com), bật **Firestore Database**, thêm một **Web app**.
+2. `cp .env.example .env` rồi điền cấu hình của Web app.
+3. Dán nội dung `firestore.rules` vào tab **Rules** của Firestore rồi bấm Publish.
+4. Tạo username bằng tay: **Start collection** → Collection ID = username (vd `dinhdinh`) →
+   Document ID = `progress` → thêm một field bất kỳ rồi Save. Game không tự tạo username mới.
+5. Deploy GitHub Pages: thêm các secret `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`,
+   `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` trong *Settings → Secrets and variables → Actions*.
+
 ## Cách chơi
 1. Kéo khách đang chờ bên trái vào bàn trống.
 2. Khách hiện ❗ → bấm vào bàn để ghi món.

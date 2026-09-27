@@ -56,5 +56,18 @@ export const SFX = {
   ding:  () => { sfx(988, 0.15, 'sine', 0.08); sfx(1319, 0.2, 'sine', 0.07, 0, 0.09); },
   serve: () => sfx(660, 0.12, 'triangle', 0.08, 120),
   coin:  () => { sfx(1200, 0.08, 'square', 0.04); sfx(1600, 0.12, 'square', 0.04, 0, 0.07); },
+  // mua nâng cấp: "ka-ching" + hợp âm đi lên vui tai
+  buy: () => {
+    noise(0.08, 0.1);
+    sfx(1319, 0.06, 'square', 0.04, 0, 0.02);
+    [1047, 1319, 1568, 2093].forEach((f, k) => sfx(f, 0.22, 'triangle', 0.09, 0, 0.08 + k * 0.07));
+    sfx(3136, 0.4, 'sine', 0.05, 0, 0.36);
+  },
+  // mua thuốc: tiếng "bloop" lọ thuốc + lấp lánh
+  buyPotion: () => {
+    sfx(300, 0.18, 'sine', 0.12, 500);
+    sfx(520, 0.14, 'sine', 0.08, 400, 0.12);
+    [2093, 2637, 3136].forEach((f, k) => sfx(f, 0.18, 'sine', 0.05, 0, 0.24 + k * 0.06));
+  },
   angry: () => sfx(220, 0.3, 'sawtooth', 0.05, -80),
 };

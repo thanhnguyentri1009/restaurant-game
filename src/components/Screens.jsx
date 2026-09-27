@@ -1,11 +1,65 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { cloudEnabled, normalizeCode, onStatus } from '../game/cloud.js';
 import { KINDS, POTIONS, UPGRADES, unlocksFor } from '../game/data.js';
 
 export function Overlay({ children }) {
   return <div className="overlay">{children}</div>;
 }
 
-export function StartScreen({ day, onPlay, onReset, onShop }) {
+const STATUS_TEXT = {
+  idle: '☁️ Đã kết nối',
+  loading: '⏳ Đang tải…',
+  saving: '⏳ Đang lưu…',
+  saved: '✅ Đã lưu lên mây',
+  error: '⚠️ Lỗi kết nối — vẫn lưu trên máy',
+};
+
+/** Ô nhập username (admin tạo sẵn trên Firestore): cùng username thì chơi tiếp được trên máy khác. */
+function SyncPanel({ onLink, onUnlink }) {
+  const [st, setSt] = useState(null);
+  const [input, setInput] = useState('');
+  const [busy, setBusy] = useState(false);
+  useEffect(() => onStatus(setSt), []);
+  if (!cloudEnabled || !st) return null;
+
+  if (st.code) {
+    return (
+      <div className="sync">
+        <span>👤 <b>{st.code}</b></span>
+        <span className="sync-status">{STATUS_TEXT[st.state] || ''}</span>
+        <button className="link" onClick={onUnlink}>Đổi username</button>
+      </div>
+    );
+  }
+  const code = normalizeCode(input);
+  const submit = async e => {
+    e.preventDefault();
+    if (!code || busy) return;
+    setBusy(true);
+    try {
+      if (await onLink(code)) setInput('');
+    } catch (err) {
+      console.warn('Firestore:', err);
+      alert(err?.code === 'permission-denied'
+        ? 'Firestore từ chối truy cập — kiểm tra lại Rules.'
+        : 'Không kết nối được máy chủ, thử lại sau nhé.');
+    }
+    setBusy(false);
+  };
+  return (
+    <form className="sync" onSubmit={submit}>
+      <span>☁️ Username:</span>
+      <input
+        value={input} onChange={e => setInput(e.target.value)}
+        placeholder="nhập username" maxLength={32} autoCapitalize="none" autoCorrect="off" spellCheck={false}
+      />
+      <button className="btn small" disabled={!code || busy}>{busy ? '…' : 'Đồng bộ'}</button>
+      <small>Nhập username để lưu tiến trình lên mây và chơi tiếp trên máy khác.</small>
+    </form>
+  );
+}
+
+export function StartScreen({ day, onPlay, onReset, onShop, onLinkCode, onUnlinkCode }) {
   const cont = day > 1;
   return (
     <Overlay>
@@ -23,6 +77,7 @@ export function StartScreen({ day, onPlay, onReset, onShop }) {
         <button className="btn" onClick={onPlay}>{cont ? `Tiếp tục ngày ${day}` : 'Bắt đầu!'}</button>
         <button className="btn secondary" onClick={onShop}>🛒 Shop</button>
         {cont && <button className="btn secondary" onClick={onReset}>Chơi lại từ đầu</button>}
+        <SyncPanel onLink={onLinkCode} onUnlink={onUnlinkCode} />
       </div>
     </Overlay>
   );
@@ -40,15 +95,44 @@ export function PauseScreen({ onResume, onQuit }) {
   );
 }
 
+// Hiệu ứng khi mua: số tiền bay lên, món đồ bay lên và tia lấp lánh toả ra
+function BuyPop({ cost, icon }) {
+  return (
+    <div className="buy-pop" aria-hidden="true">
+      <span className="buy-cost">-{cost}$</span>
+      <span className="buy-icon">{icon}</span>
+      {Array.from({ length: 8 }, (_, k) => (
+        <span key={k} className="spark" style={{ '--a': `${k * 45}deg` }}>{k % 2 ? '✨' : '⭐'}</span>
+      ))}
+    </div>
+  );
+}
+
 /** Cửa hàng: tab Thuốc (dùng trong ngày) và tab Nâng cấp (vĩnh viễn). */
 export function Shop({ save, onBuyUpgrade, onBuyPotion }) {
   const [tab, setTab] = useState('potions');
+  const [pops, setPops] = useState([]); // [{ key, id, cost, icon }]
+  const nextKey = useRef(1);
+  const buy = (e, fn, id, cost, icon) => {
+    const card = e.currentTarget.closest('.item');
+    if (!fn(id)) return;
+    // thẻ món đồ nảy lên và loé sáng (animate() chạy lại được mỗi lần bấm)
+    card?.animate?.([
+      { transform: 'scale(1)', boxShadow: '0 0 0 rgba(244,180,0,0)' },
+      { transform: 'scale(1.08)', boxShadow: '0 0 22px rgba(244,180,0,.9)', offset: 0.3 },
+      { transform: 'scale(1)', boxShadow: '0 0 0 rgba(244,180,0,0)' },
+    ], { duration: 450, easing: 'ease-out' });
+    const key = nextKey.current++;
+    setPops(ps => [...ps, { key, id, cost, icon }]);
+    setTimeout(() => setPops(ps => ps.filter(p => p.key !== key)), 1000);
+  };
+  const popsFor = id => pops.filter(p => p.id === id);
   return (
     <div className="shop-wrap">
       <div className="tabs">
         <button className={tab === 'potions' ? 'on' : ''} onClick={() => setTab('potions')}>🧪 Thuốc</button>
         <button className={tab === 'upgrades' ? 'on' : ''} onClick={() => setTab('upgrades')}>⭐ Nâng cấp</button>
-        <span className="wallet">Ví: {save.wallet}$</span>
+        <span className={`wallet${pops.length ? ' spent' : ''}`} key={pops.length ? pops[pops.length - 1].key : 0}>Ví: {save.wallet}$</span>
       </div>
       <div className="shop">
         {tab === 'potions' && POTIONS.map(p => (
@@ -56,7 +140,8 @@ export function Shop({ save, onBuyUpgrade, onBuyPotion }) {
             <div className="name">{p.icon} {p.name}</div>
             <div className="desc">{p.desc}</div>
             <div className="lvl">Đang có: {save.potions[p.id]} lọ</div>
-            <button disabled={save.wallet < p.cost} onClick={() => onBuyPotion(p.id)}>Mua {p.cost}$</button>
+            <button disabled={save.wallet < p.cost} onClick={e => buy(e, onBuyPotion, p.id, p.cost, p.icon)}>Mua {p.cost}$</button>
+            {popsFor(p.id).map(x => <BuyPop key={x.key} cost={x.cost} icon={x.icon} />)}
           </div>
         ))}
         {tab === 'upgrades' && UPGRADES.map(u => {
@@ -67,9 +152,10 @@ export function Shop({ save, onBuyUpgrade, onBuyPotion }) {
               <div className="name">{u.icon} {u.name}</div>
               <div className="desc">{u.desc}</div>
               <div className="lvl">Cấp {lvl}/{max}</div>
-              <button disabled={maxed || save.wallet < cost} onClick={() => onBuyUpgrade(u.id)}>
+              <button disabled={maxed || save.wallet < cost} onClick={e => buy(e, onBuyUpgrade, u.id, cost, u.icon)}>
                 {maxed ? 'Đã tối đa' : `Mua ${cost}$`}
               </button>
+              {popsFor(u.id).map(x => <BuyPop key={x.key} cost={x.cost} icon={x.icon} />)}
             </div>
           );
         })}
@@ -100,6 +186,9 @@ function NextDay({ day }) {
         <div>🆕 Món mới: {n.dishes.map(d => (
           <span key={d.id} className="dish">{d.emoji} <b>{d.name}</b> <small>({KINDS[d.kind]}, {d.price}$)</small></span>
         ))}</div>
+      )}
+      {n.decor.length > 0 && (
+        <div>✨ Nhà hàng đẹp hơn: {n.decor.map(d => <b key={d.id} className="dish">{d.icon} {d.name}</b>)}</div>
       )}
     </div>
   );

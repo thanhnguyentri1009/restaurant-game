@@ -1,0 +1,22 @@
+rules_version = '2';
+
+// Mỗi username là một collection, tiến trình ở {username}/progress.
+// Username do admin tạo tay trong Firebase Console: game chỉ đọc và cập nhật
+// document đã có, không tạo username mới, không xoá, không liệt kê.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{username}/progress {
+      allow get: if username.matches('^[A-Za-z0-9_-]{1,32}$');
+      allow update: if request.resource.data.keys().hasOnly(['save', 'updatedAt'])
+        && request.resource.data.save is map
+        && request.resource.data.save.day is int
+        && request.resource.data.save.day >= 1
+        && request.resource.data.save.wallet is int
+        && request.resource.data.updatedAt == request.time;
+      allow list, create, delete: if false;
+    }
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

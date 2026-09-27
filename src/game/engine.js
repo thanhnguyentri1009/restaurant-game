@@ -9,13 +9,14 @@ import { sfx, SFX } from './audio.js';
 const rand = (a, b) => a + Math.random() * (b - a);
 const pick = a => a[Math.floor(Math.random() * a.length)];
 
-function moveToward(o, tx, ty, speed, dt) {
+// `anim` = tốc độ bước chân (Penny uống thuốc thì chân chạy nhanh hơn)
+function moveToward(o, tx, ty, speed, dt, anim = 1) {
   const dx = tx - o.x, dy = ty - o.y, d = Math.hypot(dx, dy);
   if (Math.abs(dx) > 2) o.face = dx > 0 ? 1 : -1;
   if (d <= speed * dt || d < 0.5) { o.x = tx; o.y = ty; return true; }
   o.x += dx / d * speed * dt;
   o.y += dy / d * speed * dt;
-  o.walk = (o.walk || 0) + dt * 14;
+  o.walk = (o.walk || 0) + dt * 14 * anim;
   return false;
 }
 
@@ -30,7 +31,7 @@ export function createGame(save, layout = 'landscape') {
     served: 0, lost: 0, finished: false,
     groups: [], tables: [], trays: [], fx: [],
     selected: null, dragging: false, downAt: null, pointer: { x: 0, y: 0 },
-    penny: { x: L.penny.x, y: L.penny.y, face: 1, walk: 0, queue: [], current: null, carry: [], tickets: [] },
+    penny: { x: L.penny.x, y: L.penny.y, face: 1, walk: 0, queue: [], current: null, carry: [], tickets: [], trail: [], dust: 0 },
     chef: { queue: [], cooking: null, t: 0, dur: 0, dishes: [] },
     nextId: 1,
   };
@@ -216,12 +217,25 @@ function perform(G, a) {
 
 function updatePenny(G, dt) {
   const p = G.penny;
+  const boosted = G.effects.speed > 0;
+  // bóng mờ phía sau khi đang chạy nhanh
+  for (const g of p.trail) g.t += dt;
+  p.trail = p.trail.filter(g => g.t < 0.25);
   if (!p.current && p.queue.length) p.current = p.queue.shift();
   if (!p.current) return;
   const spot = actionSpot(G, p.current);
   if (!spot) { p.current = null; return; }
-  const boost = G.effects.speed > 0 ? SPEED_BOOST : 1;
-  if (moveToward(p, spot.x, spot.y, pennySpeed(G.save) * boost, dt)) {
+  const boost = boosted ? SPEED_BOOST : 1;
+  const arrived = moveToward(p, spot.x, spot.y, pennySpeed(G.save) * boost, dt, boosted ? 2 : 1);
+  if (boosted && !arrived) {
+    p.trail.push({ x: p.x, y: p.y, face: p.face, walk: p.walk, t: 0 });
+    p.dust -= dt;
+    if (p.dust <= 0) {
+      p.dust = 0.07;
+      G.fx.push({ x: p.x - p.face * 18, y: p.y - 4, str: '💨', color: '#fff', t: 0, life: 0.4, puff: true, dir: -p.face });
+    }
+  }
+  if (arrived) {
     perform(G, p.current);
     p.current = null;
   }

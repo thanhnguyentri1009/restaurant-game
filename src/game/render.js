@@ -1,5 +1,5 @@
 // Vẽ toàn bộ game lên canvas (không dùng file ảnh).
-import { LAYOUTS, capacity, menuFor, dish } from './data.js';
+import { LAYOUTS, capacity, menuFor, dish, hasDecor } from './data.js';
 import { actionSpot, isQueued } from './engine.js';
 
 const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
@@ -9,6 +9,7 @@ const FONT = '"Baloo 2","Segoe UI",system-ui,sans-serif';
 let ctx = null;
 let G = null;
 let W = 960, H = 600;
+const deco = id => hasDecor(G.day, id);
 
 function ellipse(x, y, rx, ry, rot = 0) {
   ctx.beginPath();
@@ -143,9 +144,15 @@ function memberStyle(m, extra = {}) {
 
 function drawRug() {
   const r = G.L.rug;
-  ctx.fillStyle = '#f7d9e6';
+  const vip = deco('carpet');
+  ctx.fillStyle = vip ? '#b3202e' : '#f7d9e6';
   ctx.fillRect(r.x, r.y, r.w, r.h);
-  ctx.fillStyle = 'rgba(255,111,168,.25)';
+  if (vip) {
+    ctx.fillStyle = '#e8b84a';
+    if (r.rope === 'v') { ctx.fillRect(r.x + 4, r.y, 5, r.h); ctx.fillRect(r.x + r.w - 9, r.y, 5, r.h); }
+    else { ctx.fillRect(r.x, r.y + 4, r.w, 5); ctx.fillRect(r.x, r.y + r.h - 9, r.w, 5); }
+  }
+  ctx.fillStyle = vip ? 'rgba(255,215,120,.25)' : 'rgba(255,111,168,.25)';
   ctx.strokeStyle = '#d63f7f'; ctx.lineWidth = 4;
   if (r.rope === 'v') {
     for (let y = r.y + 10; y < r.y + r.h; y += 28) ctx.fillRect(r.x + 10, y, r.w - 20, 10);
@@ -167,6 +174,20 @@ function drawWindow(wx, wy, t) {
   rrect(wx, wy, 124, 92, 10); ctx.fill();
   ctx.fillStyle = '#1b3b63';
   rrect(wx + 8, wy + 8, 108, 76, 6); ctx.fill();
+  if (deco('aurora')) {
+    ctx.save();
+    rrect(wx + 8, wy + 8, 108, 76, 6); ctx.clip();
+    ['rgba(80,255,170,.45)', 'rgba(140,120,255,.35)'].forEach((c, k) => {
+      ctx.strokeStyle = c; ctx.lineWidth = 10 - k * 3;
+      ctx.beginPath();
+      for (let x = 0; x <= 108; x += 6) {
+        const y = wy + 26 + k * 10 + Math.sin(x / 18 + t * (0.8 + k * 0.3) + k) * 7;
+        if (x) ctx.lineTo(wx + 8 + x, y); else ctx.moveTo(wx + 8, y);
+      }
+      ctx.stroke();
+    });
+    ctx.restore();
+  }
   ctx.fillStyle = '#f5fbff';
   ctx.beginPath();
   ctx.moveTo(wx + 8, wy + 84); ctx.lineTo(wx + 38, wy + 52); ctx.lineTo(wx + 63, wy + 72);
@@ -180,8 +201,22 @@ function drawWindow(wx, wy, t) {
   ctx.fillRect(wx + 60, wy + 8, 4, 76);
 }
 
-function drawBackground(t) {
-  const L = G.L;
+function drawFloor() {
+  if (deco('wood')) {
+    // sàn gỗ: các tấm ván so le
+    const rowH = 30;
+    for (let j = 0; 150 + j * rowH < H; j++) {
+      const y = 150 + j * rowH;
+      ctx.fillStyle = j % 2 ? '#e9c89c' : '#e2bd8d';
+      ctx.fillRect(0, y, W, rowH);
+      ctx.fillStyle = 'rgba(120,70,30,.18)';
+      ctx.fillRect(0, y, W, 2);
+      for (let x = (j * 67) % 160; x < W; x += 160) ctx.fillRect(x, y, 2, rowH);
+      ctx.fillStyle = 'rgba(255,255,255,.12)';
+      for (let x = (j * 41) % 97; x < W; x += 97) ctx.fillRect(x + 20, y + 12, 34, 2);
+    }
+    return;
+  }
   // sàn băng
   for (let j = 0; j * 40 + 150 < H; j++) {
     for (let i = 0; i * 40 < W; i++) {
@@ -189,13 +224,93 @@ function drawBackground(t) {
       ctx.fillRect(i * 40, 150 + j * 40, 40, 40);
     }
   }
-  drawRug();
+}
 
-  // tường
+// thảm tròn dưới mỗi bàn (vẽ cùng nền để không che khách đi ngang)
+function drawTableRugs() {
+  if (!deco('rugs')) return;
+  for (const tb of G.tables) {
+    const y = tb.y + 14;
+    ctx.fillStyle = '#9b59b6';
+    ellipse(tb.x, y, 98, 44);
+    ctx.fillStyle = '#b57edc';
+    ellipse(tb.x, y, 88, 38);
+    ctx.strokeStyle = 'rgba(255,230,160,.8)'; ctx.lineWidth = 2;
+    ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.ellipse(tb.x, y, 78, 32, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+}
+
+// cờ dây và dây đèn trên đầu tường
+function drawWallDecor(t) {
+  const sag = x => 7 + Math.sin((x / W) * Math.PI * 4) * 3;
+  if (deco('bunting')) {
+    const colors = ['#ff6fa8', '#ffd166', '#06d6a0', '#4cc9f0', '#b388eb'];
+    ctx.strokeStyle = '#fff'; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, sag(0));
+    for (let x = 20; x <= W; x += 20) ctx.lineTo(x, sag(x));
+    ctx.stroke();
+    for (let x = 6, k = 0; x < W; x += 26, k++) {
+      const y = sag(x + 8);
+      const sway = Math.sin(t * 2 + k) * 1.5;
+      ctx.fillStyle = colors[k % colors.length];
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + 16, y); ctx.lineTo(x + 8 + sway, y + 16); ctx.fill();
+    }
+  }
+  if (deco('lights')) {
+    const glow = ['#fff3a0', '#ffb3d9', '#a0f0ff', '#c8ffa0'];
+    const span = 120;
+    ctx.strokeStyle = '#2c3e50'; ctx.lineWidth = 1.5;
+    for (let x0 = 0, s = 0; x0 < W; x0 += span, s++) {
+      ctx.beginPath(); ctx.moveTo(x0, 30); ctx.quadraticCurveTo(x0 + span / 2, 52, x0 + span, 30); ctx.stroke();
+      for (let k = 1; k < 6; k++) {
+        const u = k / 6, x = x0 + span * u;
+        const y = 30 + 2 * u * (1 - u) * 22 + 4;
+        const on = 0.55 + 0.45 * Math.sin(t * 4 + x * 0.07);
+        ctx.fillStyle = glow[(k + s) % glow.length];
+        ctx.globalAlpha = 0.25 * on;
+        ellipse(x, y, 8, 8);
+        ctx.globalAlpha = 0.6 + 0.4 * on;
+        ellipse(x, y, 3.5, 4.5);
+        ctx.globalAlpha = 1;
+      }
+    }
+  }
+}
+
+// bụi lấp lánh bay trong phòng
+function drawSparkles(t) {
+  if (!deco('aurora')) return;
+  for (let k = 0; k < 18; k++) {
+    const x = (k * 173 + t * 14 * (1 + (k % 3))) % W;
+    const y = 160 + ((k * 97 + t * 10) % (H - 180));
+    ctx.globalAlpha = 0.4 + 0.4 * Math.sin(t * 3 + k * 1.7);
+    text('✦', x, y, 8 + (k % 3) * 3, k % 2 ? '#fff6c2' : '#ffffff', 700);
+  }
+  ctx.globalAlpha = 1;
+}
+
+function drawBackground(t) {
+  const L = G.L;
+  drawFloor();
+  drawRug();
+  drawTableRugs();
+
+  // tường (từ ngày có quầy cẩm thạch thì tường xanh hoàng gia viền vàng)
+  const royal = deco('marble');
   const grd = ctx.createLinearGradient(0, 0, 0, 150);
-  grd.addColorStop(0, '#78b4d6'); grd.addColorStop(1, '#5b98c0');
+  grd.addColorStop(0, royal ? '#3d5a99' : '#78b4d6'); grd.addColorStop(1, royal ? '#2c4270' : '#5b98c0');
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, W, 150);
+  if (royal) {
+    ctx.fillStyle = 'rgba(232,184,74,.25)';
+    for (let y = 14; y < 140; y += 26) {
+      for (let x = 12 + ((y - 14) / 26 % 2) * 13; x < L.counterX0; x += 26) ellipse(x, y, 2.5, 2.5);
+    }
+    ctx.fillStyle = '#e8b84a';
+    ctx.fillRect(0, 142, L.counterX0, 4);
+  }
   // gạch bếp
   const x0 = L.counterX0;
   ctx.fillStyle = '#eaf4fa';
@@ -208,6 +323,7 @@ function drawBackground(t) {
     }
   }
   if (L.window) drawWindow(L.window.x, L.window.y, t);
+  drawWallDecor(t);
   if (L.title) text('Nhà Hàng Penny', L.title.x, L.title.y, 17, '#fff', 800);
 
   // bảng thực đơn
@@ -309,12 +425,27 @@ function drawPlate(x, y, dishes, s = 1) {
 
 function drawCounter(t) {
   const L = G.L, x0 = L.counterX0;
-  ctx.fillStyle = '#b87843';
-  ctx.fillRect(x0, 118, W - x0, 32);
-  ctx.fillStyle = '#e0a96d';
-  ctx.fillRect(Math.max(0, x0 - 4), 110, W - x0 + 4, 12);
-  ctx.fillStyle = 'rgba(0,0,0,.08)';
-  for (let x = x0 + 20; x < W; x += 60) ctx.fillRect(x, 124, 3, 24);
+  if (deco('marble')) {
+    ctx.fillStyle = '#f2ede6';
+    ctx.fillRect(x0, 118, W - x0, 32);
+    ctx.strokeStyle = 'rgba(140,130,150,.35)'; ctx.lineWidth = 1.2;
+    for (let x = x0 + 10; x < W; x += 70) {
+      ctx.beginPath(); ctx.moveTo(x, 120); ctx.quadraticCurveTo(x + 18, 132, x + 8, 148); ctx.stroke();
+    }
+    ctx.fillStyle = '#e8b84a';
+    ctx.fillRect(Math.max(0, x0 - 4), 110, W - x0 + 4, 12);
+    ctx.fillStyle = '#fff2c4';
+    ctx.fillRect(Math.max(0, x0 - 4), 111, W - x0 + 4, 3);
+    ctx.fillStyle = '#c9962f';
+    ctx.fillRect(x0, 146, W - x0, 4);
+  } else {
+    ctx.fillStyle = '#b87843';
+    ctx.fillRect(x0, 118, W - x0, 32);
+    ctx.fillStyle = '#e0a96d';
+    ctx.fillRect(Math.max(0, x0 - 4), 110, W - x0 + 4, 12);
+    ctx.fillStyle = 'rgba(0,0,0,.08)';
+    for (let x = x0 + 20; x < W; x += 60) ctx.fillRect(x, 124, 3, 24);
+  }
 
   G.trays.forEach((tr, k) => {
     const x = L.trayX0 + k * L.trayGap, y = L.trayY;
@@ -361,10 +492,20 @@ function drawTable(tb, t) {
   const g = tb.group;
   ctx.fillStyle = 'rgba(20,60,100,.15)';
   ellipse(tb.x, tb.y + 30, 50, 12);
-  // ghế
+  // ghế (từ ngày 6 là ghế nhung đỏ có tựa lưng)
+  const velvet = deco('velvet');
   for (const dx of [-58, 58]) {
-    ctx.fillStyle = '#6fa8dc';
-    ellipse(tb.x + dx, tb.y + 22, 16, 7);
+    if (velvet) {
+      ctx.fillStyle = '#c9962f';
+      rrect(tb.x + dx - 15, tb.y - 34, 30, 52, 12); ctx.fill();
+      ctx.fillStyle = '#b3202e';
+      rrect(tb.x + dx - 11, tb.y - 30, 22, 44, 9); ctx.fill();
+      ctx.fillStyle = '#d63447';
+      ellipse(tb.x + dx, tb.y + 22, 17, 8);
+    } else {
+      ctx.fillStyle = '#6fa8dc';
+      ellipse(tb.x + dx, tb.y + 22, 16, 7);
+    }
   }
   ctx.fillStyle = '#8e5b32';
   ctx.fillRect(tb.x - 4, tb.y, 8, 28);
@@ -373,10 +514,24 @@ function drawTable(tb, t) {
     ctx.fillStyle = `rgba(46,204,113,${a})`;
     ellipse(tb.x, tb.y, 54, 34);
   }
+  if (velvet) {
+    // viền ren của khăn bàn
+    ctx.fillStyle = '#fff';
+    for (let k = 0; k < 22; k++) {
+      const a = (k / 22) * Math.PI * 2;
+      ellipse(tb.x + Math.cos(a) * 47, tb.y + 2 + Math.sin(a) * 27, 5, 5);
+    }
+  }
   ctx.fillStyle = '#fff';
   ellipse(tb.x, tb.y, 46, 26);
-  ctx.fillStyle = '#ffd1e3';
+  ctx.fillStyle = velvet ? '#ffe3ee' : '#ffd1e3';
   ellipse(tb.x, tb.y - 2, 38, 19);
+  if (deco('flowers')) {
+    const fx = tb.x + 30, fy = tb.y - 6;
+    ctx.fillStyle = '#7ec8e3';
+    rrect(fx - 5, fy - 4, 10, 12, 4); ctx.fill();
+    emoji(['🌷', '🌸', '🌼', '🌹'][tb.i % 4], fx, fy - 10, 15);
+  }
   if (g && g.state === 'eating') drawPlate(tb.x, tb.y - 2, g.order, 0.75);
   ctx.fillStyle = '#1d3557';
   ellipse(tb.x, tb.y + 42, 10, 10);
@@ -425,10 +580,27 @@ function drawWalker(g, t) {
 
 function drawPenny(t) {
   const p = G.penny;
+  const dash = G.effects.speed > 0 && p.current;
+  // bóng mờ và vệt gió khi uống thuốc chạy nhanh
+  p.trail.forEach((g, k) => {
+    if (k % 3) return;
+    ctx.globalAlpha = 0.35 * (1 - g.t / 0.25);
+    drawPenguin(g.x, g.y, 1, { face: g.face, bow: true, apron: true, bob: Math.abs(Math.sin(g.walk)) * 4 });
+  });
+  ctx.globalAlpha = 1;
+  if (dash) {
+    ctx.strokeStyle = 'rgba(255,200,40,.8)'; ctx.lineWidth = 3; ctx.lineCap = 'round';
+    for (let k = 0; k < 3; k++) {
+      const y = p.y - 20 - k * 16, len = 18 + ((t * 60 + k * 11) % 14);
+      const x = p.x - p.face * (26 + k * 4);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - p.face * len, y); ctx.stroke();
+    }
+    ctx.lineCap = 'butt';
+  }
   drawPenguin(p.x, p.y, 1, {
     face: p.face, bow: true, apron: true, blush: true,
-    bob: p.current ? Math.abs(Math.sin(p.walk)) * 4 : 0,
-    flap: p.carry.length ? -0.9 : 0,
+    bob: p.current ? Math.abs(Math.sin(p.walk)) * (dash ? 6 : 4) : 0,
+    flap: p.carry.length ? -0.9 : (dash ? 0.5 + Math.sin(p.walk * 2) * 0.3 : 0),
   });
   const hands = [[p.face * 27, -50], [-p.face * 27, -50], [0, -86]];
   p.carry.forEach((tr, k) => {
@@ -512,6 +684,12 @@ function drawActionMarkers() {
 function drawFx() {
   for (const f of G.fx) {
     const p = f.t / f.life;
+    if (f.puff) {
+      ctx.globalAlpha = 0.8 * (1 - p);
+      emoji(f.str, f.x + f.dir * p * 30, f.y - p * 8, 12 + p * 10);
+      ctx.globalAlpha = 1;
+      continue;
+    }
     ctx.globalAlpha = 1 - p * p;
     const y = f.y - p * 40;
     ctx.font = `800 ${f.big ? 24 : 16}px ${FONT}`;
@@ -563,6 +741,7 @@ function drawBanner() {
   parts.push(`${n.customers} lượt khách`);
   const lines = [`☀️ Ngày ${G.day}`, parts.join(' · ')];
   if (n.dishes.length) lines.push('Món mới: ' + n.dishes.map(d => d.emoji + ' ' + d.name).join(', '));
+  if (n.decor.length) lines.push('✨ Nhà hàng đẹp hơn: ' + n.decor.map(d => d.icon + ' ' + d.name).join(', '));
   ctx.globalAlpha = alpha;
   ctx.font = `700 15px ${FONT}`;
   const w = Math.min(W - 20, Math.max(...lines.map(l => ctx.measureText(l).width)) + 40);
@@ -601,6 +780,7 @@ export function render(context, game, t, layout = 'landscape') {
   drawChef(t);
   drawCounter(t);
   drawDecor(t);
+  drawSparkles(t);
 
   const seatedState = g => !['toTable', 'leaving'].includes(g.state);
   const items = [];

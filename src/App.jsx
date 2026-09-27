@@ -5,7 +5,8 @@ import PotionBar from './components/PotionBar.jsx';
 import { StartScreen, PauseScreen, DayEndScreen, ShopScreen } from './components/Screens.jsx';
 import { createGame, applyPotion } from './game/engine.js';
 import { goalFor, UPGRADES, POTIONS } from './game/data.js';
-import { loadSave, writeSave, freshSave } from './game/save.js';
+import { loadSave, writeSave, freshSave, parseSave } from './game/save.js';
+import { cloudEnabled, getCode, setCode, pullSave, pushSave } from './game/cloud.js';
 import { sfx, SFX } from './game/audio.js';
 import { music } from './game/music.js';
 
@@ -62,6 +63,49 @@ export default function App() {
     refresh();
   };
 
+  // Đồng bộ Firestore: mở game thì lấy bản trên mây nếu mới hơn bản trong máy
+  useEffect(() => {
+    const code = getCode();
+    if (!cloudEnabled || !code) return;
+    pullSave(code).then(res => {
+      if (!res.exists) return;
+      const remote = parseSave(res.save);
+      const local = saveRef.current;
+      if (remote && remote.updatedAt > local.updatedAt) {
+        if (gameRef.current) return; // đang chơi dở thì không thay tiến trình
+        saveRef.current = remote;
+        writeSave(remote, false);
+        refresh();
+      } else if (!remote || remote.updatedAt < local.updatedAt) {
+        pushSave(code, local);
+      }
+    }).catch(() => {});
+  }, []);
+
+  /** Đăng nhập bằng username có sẵn; trả về false nếu username không tồn tại hoặc người chơi huỷ. */
+  const linkCode = async code => {
+    const res = await pullSave(code);
+    if (!res.exists) {
+      alert(`Username "${code}" không tồn tại.`);
+      return false;
+    }
+    const remote = parseSave(res.save);
+    if (remote) {
+      const ok = confirm(`"${code}" đang có tiến trình: ngày ${remote.day}, ví ${remote.wallet}$.
+`
+        + 'Tải về máy này? Tiến trình hiện tại trên máy sẽ bị thay thế.');
+      if (!ok) return false;
+      setCode(code);
+      saveRef.current = remote;
+      writeSave(remote, false);
+      refresh();
+    } else {
+      setCode(code);
+      await pushSave(code, saveRef.current);
+    }
+    return true;
+  };
+
   const handleHud = useCallback(next => {
     setHud(prev => (prev && Object.keys(next).every(k => prev[k] === next[k]) ? prev : next));
   }, []);
@@ -83,22 +127,24 @@ export default function App() {
   const buyUpgrade = id => {
     const u = UPGRADES.find(x => x.id === id);
     const cost = u.costs[save.up[id]];
-    if (cost == null || save.wallet < cost) return;
+    if (cost == null || save.wallet < cost) return false;
     save.wallet -= cost;
     save.up[id]++;
     writeSave(save);
-    SFX.coin();
+    SFX.buy();
     refresh();
+    return true;
   };
 
   const buyPotion = id => {
     const p = POTIONS.find(x => x.id === id);
-    if (save.wallet < p.cost) return;
+    if (save.wallet < p.cost) return false;
     save.wallet -= p.cost;
     save.potions[id]++;
     writeSave(save);
-    SFX.coin();
+    SFX.buyPotion();
     refresh();
+    return true;
   };
 
   const drinkPotion = useCallback(id => {
@@ -170,7 +216,10 @@ export default function App() {
       <div id="stage">
         <GameCanvas gameRef={gameRef} layout={layout} running={screen === 'play'} onHud={handleHud} onDayEnd={handleDayEnd} />
         {screen === 'start' && (
-          <StartScreen day={save.day} onPlay={startDay} onReset={resetAll} onShop={() => setScreen('shop')} />
+          <StartScreen
+            day={save.day} onPlay={startDay} onReset={resetAll} onShop={() => setScreen('shop')}
+            onLinkCode={linkCode} onUnlinkCode={() => setCode('')}
+          />
         )}
         {screen === 'shop' && (
           <ShopScreen save={save} onBuyUpgrade={buyUpgrade} onBuyPotion={buyPotion} onBack={() => setScreen('start')} />
