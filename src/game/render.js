@@ -217,12 +217,22 @@ function drawBackground(t) {
   ctx.strokeStyle = '#c98b55'; ctx.lineWidth = 4; ctx.stroke();
   text('THỰC ĐƠN', cx, b.y + 12, 13, '#f4d58d', 800);
   const menu = menuFor(G.day);
-  const gap = Math.min(54, (b.w - 30) / menu.length);
-  menu.forEach((d, k) => {
-    const x = cx + (k - (menu.length - 1) / 2) * gap;
-    emoji(d.emoji, x, b.y + 36, 20);
-    text(d.price + '$', x, b.y + 56, 12, '#fff', 700);
-  });
+  if (menu.length <= 9) {
+    const gap = Math.min(54, (b.w - 30) / menu.length);
+    menu.forEach((d, k) => {
+      const x = cx + (k - (menu.length - 1) / 2) * gap;
+      emoji(d.emoji, x, b.y + 36, 20);
+      text(d.price + '$', x, b.y + 56, 12, '#fff', 700);
+    });
+  } else {
+    const perRow = Math.ceil(menu.length / 2);
+    const gap = (b.w - 24) / perRow;
+    menu.forEach((d, k) => {
+      const row = Math.floor(k / perRow), col = k % perRow;
+      const n = row === 0 ? perRow : menu.length - perRow;
+      emoji(d.emoji, cx + (col - (n - 1) / 2) * gap, b.y + 31 + row * 21, 17);
+    });
+  }
 
   // bếp
   const sx = L.stoveX;
@@ -268,6 +278,9 @@ function drawChef(t) {
     chefHat: true, face: busy ? (Math.sin(t * 6) > 0 ? 1 : -1) : 1,
     flap: busy ? Math.sin(t * 16) * 0.3 : 0, bob: busy ? Math.abs(Math.sin(t * 8)) * 2 : 0,
   });
+  if (G.effects.cook > 0) {
+    for (let k = 0; k < 3; k++) emoji('🔥', sx + 45 + k * 40, 100 - Math.abs(Math.sin(t * 9 + k)) * 6, 16);
+  }
   if (!busy) return;
   // hơi nước
   for (let k = 0; k < 3; k++) {
@@ -410,27 +423,35 @@ function drawWalker(g, t) {
   }
 }
 
-function drawPenny() {
+function drawPenny(t) {
   const p = G.penny;
   drawPenguin(p.x, p.y, 1, {
     face: p.face, bow: true, apron: true, blush: true,
     bob: p.current ? Math.abs(Math.sin(p.walk)) * 4 : 0,
     flap: p.carry.length ? -0.9 : 0,
   });
+  const hands = [[p.face * 27, -50], [-p.face * 27, -50], [0, -86]];
   p.carry.forEach((tr, k) => {
-    const x = p.x + p.face * 6, y = p.y - 78 - k * 24;
-    drawPlate(x, y, tr.dishes, 0.7);
+    const [dx, dy] = hands[k] || hands[2];
+    const x = p.x + dx, y = p.y + dy;
+    drawPlate(x, y, tr.dishes, tr.dishes.length > 1 ? 0.62 : 0.7);
     ctx.fillStyle = '#1d3557';
-    ellipse(x + 22, y + 6, 8, 8);
-    text(String(tr.tableNo), x + 22, y + 7, 11, '#fff', 800);
+    ellipse(x + (dx < 0 ? -16 : 16), y + 9, 8, 8);
+    text(String(tr.tableNo), x + (dx < 0 ? -16 : 16), y + 10, 11, '#fff', 800);
   });
+  if (G.effects.speed > 0) {
+    emoji('⚡', p.x - p.face * 20, p.y - 14 - Math.abs(Math.sin(t * 12)) * 4, 16);
+    ctx.fillStyle = 'rgba(255,200,40,.35)';
+    ellipse(p.x - p.face * 26, p.y - 4, 16, 5);
+  }
+  // tờ đơn giắt ở túi tạp dề (hai tay để bưng món)
   if (p.tickets.length) {
-    const x = p.x - p.face * 26, y = p.y - 44;
+    const x = p.x + p.face * 3, y = p.y - 22;
     ctx.fillStyle = '#fffbe6';
-    ctx.fillRect(x - 8, y - 12, 16, 22);
+    ctx.fillRect(x - 7, y - 14, 14, 18);
     ctx.fillStyle = '#c0392b';
-    ctx.fillRect(x - 8, y - 12, 16, 4);
-    if (p.tickets.length > 1) text('×' + p.tickets.length, x + 14, y + 8, 12, '#1d3557', 800);
+    ctx.fillRect(x - 7, y - 14, 14, 4);
+    if (p.tickets.length > 1) text('×' + p.tickets.length, x + 16, y - 2, 12, '#1d3557', 800);
   }
 }
 
@@ -531,6 +552,28 @@ function drawHint() {
   text('💡 ' + h, x, y + 1, 16, '#fff', 700);
 }
 
+// Thông báo đầu ngày: bàn mới, món mới
+function drawBanner() {
+  const show = 5;
+  if (G.time > show) return;
+  const n = G.news;
+  const alpha = Math.min(1, G.time * 3, (show - G.time) * 2);
+  const parts = [];
+  if (n.newTables > 0) parts.push(`+${n.newTables} bàn mới`);
+  parts.push(`${n.customers} lượt khách`);
+  const lines = [`☀️ Ngày ${G.day}`, parts.join(' · ')];
+  if (n.dishes.length) lines.push('Món mới: ' + n.dishes.map(d => d.emoji + ' ' + d.name).join(', '));
+  ctx.globalAlpha = alpha;
+  ctx.font = `700 15px ${FONT}`;
+  const w = Math.min(W - 20, Math.max(...lines.map(l => ctx.measureText(l).width)) + 40);
+  const { x, y } = G.L.banner;
+  const h = 18 + lines.length * 24;
+  ctx.fillStyle = 'rgba(29,53,87,.9)';
+  rrect(x - w / 2, y, w, h, 14); ctx.fill();
+  lines.forEach((l, k) => text(l, x, y + 20 + k * 24, k === 0 ? 20 : 15, k === 0 ? '#ffd166' : '#fff', k === 0 ? 800 : 700));
+  ctx.globalAlpha = 1;
+}
+
 function drawTitleBackdrop(t) {
   const grd = ctx.createLinearGradient(0, 0, 0, H);
   grd.addColorStop(0, '#1b3b63'); grd.addColorStop(1, '#78b4d6');
@@ -569,7 +612,7 @@ export function render(context, game, t, layout = 'landscape') {
     if (G.dragging && G.selected === g) continue;
     items.push({ y: g.y, draw: () => drawWalker(g, t) });
   }
-  items.push({ y: G.penny.y, draw: drawPenny });
+  items.push({ y: G.penny.y, draw: () => drawPenny(t) });
   items.sort((a, b) => a.y - b.y).forEach(it => it.draw());
 
   drawActionMarkers();
@@ -577,4 +620,5 @@ export function render(context, game, t, layout = 'landscape') {
   if (G.dragging && G.selected) drawWalker(G.selected, t);
   drawFx();
   drawHint();
+  drawBanner();
 }

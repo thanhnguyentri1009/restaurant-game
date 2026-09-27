@@ -35,7 +35,7 @@ body {
 
 /* Khung game luôn vừa cả chiều ngang lẫn chiều dọc màn hình (tỉ lệ 16:10) */
 #wrap {
-  --hud-h: 52px;
+  --hud-h: 100px; /* HUD + thanh thuốc */
   --pad: 32px;
   width: 100%;
   max-width: min(960px, calc((100vh - var(--hud-h) - var(--pad)) * 1.6));
@@ -73,7 +73,6 @@ body {
 #game {
   display: block;
   width: 100%;
-  border-radius: 0 0 14px 14px;
   touch-action: none;
   background: #cbeaf6;
 }
@@ -83,7 +82,7 @@ body {
   display: flex;
   align-items: center; justify-content: center;
   background: rgba(10, 30, 55, .55);
-  border-radius: 0 0 14px 14px;
+  border-radius: 0;
   padding: 12px;
   overflow: auto;
 }
@@ -130,6 +129,40 @@ body {
 .item button:disabled { background: #e3e9ef; color: #9aabbb; cursor: default; }
 .wallet { font-size: 20px; font-weight: 800; color: var(--ink); }
 
+.potion-bar {
+  display: flex; justify-content: center; gap: 10px;
+  background: #eaf6fd; border-radius: 0 0 14px 14px; padding: 6px 10px;
+}
+.potion {
+  font: inherit; font-weight: 700; font-size: 15px;
+  display: flex; align-items: center; gap: 6px;
+  border: 2px solid #c9e2f2; background: #fff; color: var(--ink);
+  border-radius: 999px; padding: 3px 14px; cursor: pointer;
+  touch-action: manipulation;
+}
+.potion .icon { font-size: 18px; }
+.potion .count { color: var(--accent-dark); font-weight: 800; }
+.potion:disabled { opacity: .45; cursor: default; }
+.potion.active { border-color: var(--gold); background: #fff6d6; animation: glow 1s ease-in-out infinite alternate; }
+@keyframes glow { to { box-shadow: 0 0 12px rgba(244,180,0,.7); } }
+
+.shop-wrap { margin: 10px 0; }
+.tabs { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.tabs button {
+  font: inherit; font-weight: 800; border: 0; border-radius: 10px; padding: 4px 14px;
+  background: #e3eef6; color: var(--muted); cursor: pointer;
+}
+.tabs button.on { background: var(--ink); color: #fff; }
+.tabs .wallet { margin-left: auto; }
+
+.next-day {
+  background: #fff6d6; border: 2px dashed var(--gold); border-radius: 12px;
+  padding: 8px 12px; margin: 8px 0; text-align: left; line-height: 1.5;
+}
+.next-day .new { color: var(--ok); }
+.next-day .dish { display: inline-block; margin-right: 10px; }
+.next-day small { color: var(--muted); }
+
 /* Màn hình nhỏ: menu phủ cả màn hình thay vì chỉ khung game cho dễ đọc */
 @media (max-width: 820px), (max-height: 520px) {
   .overlay { position: fixed; z-index: 10; border-radius: 0; }
@@ -141,6 +174,7 @@ body {
   #hud { font-size: 13px; gap: 6px; padding: 4px 8px; flex-wrap: nowrap; }
   .goal { min-width: 60px; gap: 4px; }
   .hud-btn { width: 30px; height: 28px; font-size: 14px; }
+  .potion .label { display: none; }
   .card { padding: 14px; }
   .card h1 { font-size: 28px; }
 }
@@ -151,12 +185,15 @@ body {
     padding: 4px max(8px, env(safe-area-inset-right)) 4px max(8px, env(safe-area-inset-left));
     align-items: center;
   }
-  #wrap { --hud-h: 34px; --pad: 8px; }
+  #wrap { --hud-h: 70px; --pad: 8px; }
+  .potion-bar { padding: 3px 6px; gap: 6px; }
+  .potion { padding: 2px 10px; font-size: 13px; }
+  .next-day { font-size: 13px; padding: 4px 8px; }
   #hud { font-size: 14px; gap: 8px; padding: 2px 10px; flex-wrap: nowrap; border-radius: 10px 10px 0 0; }
   .goal { min-width: 90px; }
   .bar { height: 8px; }
   .hud-btn { width: 30px; height: 28px; font-size: 14px; border-radius: 8px; }
-  #game, .overlay { border-radius: 0 0 10px 10px; }
+  #game, .overlay { border-radius: 0; }
   .overlay { padding: 6px; }
   .card { padding: 10px 14px; border-radius: 14px; }
   .card h1 { font-size: 24px; }

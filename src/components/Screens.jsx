@@ -1,10 +1,11 @@
-import { DISHES, KINDS, UPGRADES } from '../game/data.js';
+import { useState } from 'react';
+import { KINDS, POTIONS, UPGRADES, unlocksFor } from '../game/data.js';
 
 export function Overlay({ children }) {
   return <div className="overlay">{children}</div>;
 }
 
-export function StartScreen({ day, onPlay, onReset }) {
+export function StartScreen({ day, onPlay, onReset, onShop }) {
   const cont = day > 1;
   return (
     <Overlay>
@@ -15,11 +16,12 @@ export function StartScreen({ day, onPlay, onReset }) {
           <li><b>Kéo khách</b> đang chờ ở thảm hồng vào <b>bàn trống</b>.</li>
           <li>Khi khách hiện <b>❗</b>, bấm vào bàn để <b>ghi món</b>.</li>
           <li>Bấm <b>bảng ĐƠN</b> để đưa đơn cho đầu bếp.</li>
-          <li>Món nấu xong nằm trên quầy — bấm để <b>bưng</b>, rồi bấm bàn có <b>số trùng</b>.</li>
+          <li>Món nấu xong nằm trên quầy — bấm để <b>bưng</b> (2 tay bưng được 2 món), rồi bấm bàn có <b>số trùng</b>.</li>
           <li>Khách ăn xong hiện <b>💰</b> — bấm vào bàn để <b>tính tiền</b>.</li>
         </ol>
-        <p>Bạn có thể bấm nhiều chỗ liên tiếp, Penny sẽ làm theo thứ tự. Đừng để khách chờ lâu kẻo hết ♥!</p>
+        <p>Càng lên ngày cao càng đông khách, thêm bàn và thêm món. Dùng thuốc ⚡🔥💖 ở thanh dưới màn hình khi quá bận!</p>
         <button className="btn" onClick={onPlay}>{cont ? `Tiếp tục ngày ${day}` : 'Bắt đầu!'}</button>
+        <button className="btn secondary" onClick={onShop}>🛒 Shop</button>
         {cont && <button className="btn secondary" onClick={onReset}>Chơi lại từ đầu</button>}
       </div>
     </Overlay>
@@ -38,9 +40,73 @@ export function PauseScreen({ onResume, onQuit }) {
   );
 }
 
-export function DayEndScreen({ result, save, onBuy, onNext, onMenu }) {
+/** Cửa hàng: tab Thuốc (dùng trong ngày) và tab Nâng cấp (vĩnh viễn). */
+export function Shop({ save, onBuyUpgrade, onBuyPotion }) {
+  const [tab, setTab] = useState('potions');
+  return (
+    <div className="shop-wrap">
+      <div className="tabs">
+        <button className={tab === 'potions' ? 'on' : ''} onClick={() => setTab('potions')}>🧪 Thuốc</button>
+        <button className={tab === 'upgrades' ? 'on' : ''} onClick={() => setTab('upgrades')}>⭐ Nâng cấp</button>
+        <span className="wallet">Ví: {save.wallet}$</span>
+      </div>
+      <div className="shop">
+        {tab === 'potions' && POTIONS.map(p => (
+          <div className="item" key={p.id}>
+            <div className="name">{p.icon} {p.name}</div>
+            <div className="desc">{p.desc}</div>
+            <div className="lvl">Đang có: {save.potions[p.id]} lọ</div>
+            <button disabled={save.wallet < p.cost} onClick={() => onBuyPotion(p.id)}>Mua {p.cost}$</button>
+          </div>
+        ))}
+        {tab === 'upgrades' && UPGRADES.map(u => {
+          const lvl = save.up[u.id], max = u.costs.length, cost = u.costs[lvl];
+          const maxed = lvl >= max;
+          return (
+            <div className="item" key={u.id}>
+              <div className="name">{u.icon} {u.name}</div>
+              <div className="desc">{u.desc}</div>
+              <div className="lvl">Cấp {lvl}/{max}</div>
+              <button disabled={maxed || save.wallet < cost} onClick={() => onBuyUpgrade(u.id)}>
+                {maxed ? 'Đã tối đa' : `Mua ${cost}$`}
+              </button>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export function ShopScreen({ save, onBuyUpgrade, onBuyPotion, onBack }) {
+  return (
+    <Overlay>
+      <div className="card">
+        <h2>🛒 Shop</h2>
+        <Shop save={save} onBuyUpgrade={onBuyUpgrade} onBuyPotion={onBuyPotion} />
+        <button className="btn" onClick={onBack}>Xong</button>
+      </div>
+    </Overlay>
+  );
+}
+
+function NextDay({ day }) {
+  const n = unlocksFor(day);
+  return (
+    <div className="next-day">
+      <b>Ngày {day} có gì?</b>
+      <div>🐧 {n.customers} lượt khách · 🪑 {n.tables} bàn{n.newTables > 0 && <b className="new"> (+{n.newTables} bàn mới)</b>}</div>
+      {n.dishes.length > 0 && (
+        <div>🆕 Món mới: {n.dishes.map(d => (
+          <span key={d.id} className="dish">{d.emoji} <b>{d.name}</b> <small>({KINDS[d.kind]}, {d.price}$)</small></span>
+        ))}</div>
+      )}
+    </div>
+  );
+}
+
+export function DayEndScreen({ result, save, onBuyUpgrade, onBuyPotion, onNext, onMenu }) {
   const { ok, stars, playedDay, earned, goal, served, lost } = result;
-  const newDishes = ok ? DISHES.filter(d => d.day === save.day) : [];
   return (
     <Overlay>
       <div className="card">
@@ -49,29 +115,9 @@ export function DayEndScreen({ result, save, onBuy, onNext, onMenu }) {
           {[0, 1, 2].map(k => <span key={k} className={k < stars ? '' : 'off'}>⭐</span>)}
         </div>
         <p>Doanh thu: <b>{earned}$</b> / {goal}$ · Phục vụ {served} bàn · {lost} bàn bỏ về</p>
-        {newDishes.length > 0 && (
-          <p>Món mới ngày mai: {newDishes.map(d => (
-            <span key={d.id}>{d.emoji} <b>{d.name}</b> ({KINDS[d.kind]}, {d.price}$) </span>
-          ))}</p>
-        )}
-        {!ok && <p>Tiền đã kiếm vẫn được giữ lại — nâng cấp rồi thử lại nhé!</p>}
-        <div className="wallet">Ví: {save.wallet}$</div>
-        <div className="shop">
-          {UPGRADES.map(u => {
-            const lvl = save.up[u.id], max = u.costs.length, cost = u.costs[lvl];
-            const maxed = lvl >= max;
-            return (
-              <div className="item" key={u.id}>
-                <div className="name">{u.icon} {u.name}</div>
-                <div className="desc">{u.desc}</div>
-                <div className="lvl">Cấp {lvl}/{max}</div>
-                <button disabled={maxed || save.wallet < cost} onClick={() => onBuy(u.id)}>
-                  {maxed ? 'Đã tối đa' : `Mua ${cost}$`}
-                </button>
-              </div>
-            );
-          })}
-        </div>
+        {!ok && <p>Tiền đã kiếm vẫn được giữ lại — mua thuốc hoặc nâng cấp rồi thử lại nhé!</p>}
+        <NextDay day={save.day} />
+        <Shop save={save} onBuyUpgrade={onBuyUpgrade} onBuyPotion={onBuyPotion} />
         <button className="btn" onClick={onNext}>{ok ? `Sang ngày ${save.day} ➜` : `Thử lại ngày ${save.day}`}</button>
         <button className="btn secondary" onClick={onMenu}>Menu</button>
       </div>

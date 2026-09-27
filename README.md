@@ -23,8 +23,26 @@ bằng trình duyệt điện thoại **cùng mạng Wi-Fi**. Cầm dọc hay xo
 5. Khách hiện 💰 → bấm bàn để tính tiền.
 
 Có thể bấm liên tiếp nhiều chỗ, Penny sẽ làm lần lượt. Khách càng nhiều ♥ thì tip càng cao.
-Thực đơn có món ăn, đồ uống và tráng miệng, mở dần theo ngày:
-ngày 1 🐟 🍣 🧋 · ngày 2 🍜 🍙 · ngày 3 🍦 🍮 · ngày 4 🍤 · ngày 5 🍲.
+Penny bưng được **2 món cùng lúc** (2 tay), nâng cấp Khay lớn để bưng món thứ 3.
+
+### Lịch mở khoá theo ngày
+| Ngày | Bàn | Lượt khách | Món mới |
+|---|---|---|---|
+| 1 | 3 | 6 | 🐟 Cá nướng, 🍣 Sushi, 🧋 Trà sữa |
+| 2 | 4 | 9 | 🍜 Mì ramen, 🍙 Cơm nắm cá hồi |
+| 3 | 4 | 11 | 🍦 Kem tuyết, 🍮 Bánh flan |
+| 4 | 5 | 13 | 🍤 Tôm tempura, 🍵 Trà xanh matcha |
+| 5 | 5 | 15 | 🍲 Lẩu hải sản, 🥟 Há cảo tôm |
+| 6 | 6 | 17 | 🍰 Bánh kem dâu, 🥥 Nước dừa |
+| 7 | 6 | 19 | 🦀 Cua hấp, 🍧 Bingsu |
+| 8 | 7 | 21 | 🍛 Cà ri cá |
+| 9 | 7 | 23 | 🍡 Bánh dango |
+| 10+ | 8 | 25 (+2 mỗi ngày) | — |
+
+### Shop
+- **Thuốc** (dùng trong ngày, bấm nút dưới màn hình hoặc phím 1/2/3):
+  ⚡ Chạy nhanh (x2 tốc độ, 20s) · 🔥 Nấu nhanh (x3, 20s) · 💖 Vui vẻ (đầy lại ♥ cho mọi khách)
+- **Nâng cấp** (vĩnh viễn): giày trượt băng, bếp xịn, khay lớn, trang trí.
 
 Cuối ngày dùng tiền để nâng cấp. Tiến trình được lưu tự động trong trình duyệt. `Esc` để tạm dừng.
 

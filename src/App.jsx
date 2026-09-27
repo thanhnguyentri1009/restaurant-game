@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import GameCanvas from './components/GameCanvas.jsx';
 import Hud from './components/Hud.jsx';
-import { StartScreen, PauseScreen, DayEndScreen } from './components/Screens.jsx';
-import { createGame } from './game/engine.js';
-import { goalFor, UPGRADES } from './game/data.js';
+import PotionBar from './components/PotionBar.jsx';
+import { StartScreen, PauseScreen, DayEndScreen, ShopScreen } from './components/Screens.jsx';
+import { createGame, applyPotion } from './game/engine.js';
+import { goalFor, UPGRADES, POTIONS } from './game/data.js';
 import { loadSave, writeSave, freshSave } from './game/save.js';
 import { sfx, SFX } from './game/audio.js';
 
@@ -31,7 +32,9 @@ export default function App() {
   const [, refresh] = useReducer(x => x + 1, 0);
   const layout = useLayout();
 
-  const [screen, setScreen] = useState('start'); // start | play | paused | dayEnd
+  const [screen, setScreen] = useState('start'); // start | shop | play | paused | dayEnd
+  const screenRef = useRef(screen);
+  screenRef.current = screen;
   const [hud, setHud] = useState(null);
   const [result, setResult] = useState(null);
 
@@ -73,7 +76,7 @@ export default function App() {
     setScreen('dayEnd');
   }, []);
 
-  const buy = id => {
+  const buyUpgrade = id => {
     const u = UPGRADES.find(x => x.id === id);
     const cost = u.costs[save.up[id]];
     if (cost == null || save.wallet < cost) return;
@@ -84,12 +87,35 @@ export default function App() {
     refresh();
   };
 
+  const buyPotion = id => {
+    const p = POTIONS.find(x => x.id === id);
+    if (save.wallet < p.cost) return;
+    save.wallet -= p.cost;
+    save.potions[id]++;
+    writeSave(save);
+    SFX.coin();
+    refresh();
+  };
+
+  const drinkPotion = useCallback(id => {
+    const G = gameRef.current;
+    if (!G || screenRef.current !== 'play') return;
+    if (applyPotion(G, id)) {
+      writeSave(saveRef.current);
+      refresh();
+    }
+  }, []);
+
   const togglePause = useCallback(() => {
     setScreen(s => (s === 'play' ? 'paused' : s === 'paused' ? 'play' : s));
   }, []);
 
   useEffect(() => {
-    const onKey = e => { if (e.key === 'Escape' || e.key === 'p') togglePause(); };
+    const onKey = e => {
+      if (e.key === 'Escape' || e.key === 'p') togglePause();
+      const k = Number(e.key);
+      if (k >= 1 && k <= POTIONS.length) drinkPotion(POTIONS[k - 1].id);
+    };
     const onBlur = () => setScreen(s => (s === 'play' ? 'paused' : s));
     const onVisibility = () => { if (document.hidden) onBlur(); };
     window.addEventListener('keydown', onKey);
@@ -100,7 +126,7 @@ export default function App() {
       window.removeEventListener('blur', onBlur);
       document.removeEventListener('visibilitychange', onVisibility);
     };
-  }, [togglePause]);
+  }, [togglePause, drinkPotion]);
 
   const hudData = gameRef.current && hud
     ? { ...hud, wallet: save.wallet }
@@ -111,12 +137,27 @@ export default function App() {
       <Hud {...hudData} onPause={togglePause} canPause={screen === 'play' || screen === 'paused'} />
       <div id="stage">
         <GameCanvas gameRef={gameRef} layout={layout} running={screen === 'play'} onHud={handleHud} onDayEnd={handleDayEnd} />
-        {screen === 'start' && <StartScreen day={save.day} onPlay={startDay} onReset={resetAll} />}
+        {screen === 'start' && (
+          <StartScreen day={save.day} onPlay={startDay} onReset={resetAll} onShop={() => setScreen('shop')} />
+        )}
+        {screen === 'shop' && (
+          <ShopScreen save={save} onBuyUpgrade={buyUpgrade} onBuyPotion={buyPotion} onBack={() => setScreen('start')} />
+        )}
         {screen === 'paused' && <PauseScreen onResume={togglePause} onQuit={toMenu} />}
         {screen === 'dayEnd' && result && (
-          <DayEndScreen result={result} save={save} onBuy={buy} onNext={startDay} onMenu={toMenu} />
+          <DayEndScreen
+            result={result} save={save}
+            onBuyUpgrade={buyUpgrade} onBuyPotion={buyPotion}
+            onNext={startDay} onMenu={toMenu}
+          />
         )}
       </div>
+      <PotionBar
+        potions={save.potions}
+        active={{ speed: hud?.speed || 0, cook: hud?.cook || 0 }}
+        enabled={screen === 'play'}
+        onUse={drinkPotion}
+      />
     </main>
   );
 }

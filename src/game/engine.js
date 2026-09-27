@@ -1,8 +1,8 @@
 // Logic game: trạng thái được giữ trong một object G có thể thay đổi (mutable),
 // React chỉ đọc ra để hiển thị HUD và các màn hình.
 import {
-  LAYOUTS, TYPES, SCARVES, WAITING,
-  pennySpeed, cookMul, capacity, decorDrain, goalFor, menuFor, dish,
+  LAYOUTS, TYPES, SCARVES, WAITING, POTIONS, SPEED_BOOST, COOK_BOOST,
+  pennySpeed, cookMul, capacity, decorDrain, goalFor, menuFor, dish, dayInfo, unlocksFor,
 } from './data.js';
 import { sfx, SFX } from './audio.js';
 
@@ -22,9 +22,11 @@ function moveToward(o, tx, ty, speed, dt) {
 export function createGame(save, layout = 'landscape') {
   const day = save.day;
   const L = LAYOUTS[layout];
+  const info = dayInfo(day);
   const G = {
     save, L, day, time: 0, earned: 0, goal: goalFor(day),
-    total: Math.min(6 + day * 2, 24), spawned: 0, nextSpawn: 1.2,
+    total: info.customers, spawned: 0, nextSpawn: 1.2,
+    news: unlocksFor(day), effects: { speed: 0, cook: 0 },
     served: 0, lost: 0, finished: false,
     groups: [], tables: [], trays: [], fx: [],
     selected: null, dragging: false, downAt: null, pointer: { x: 0, y: 0 },
@@ -32,7 +34,7 @@ export function createGame(save, layout = 'landscape') {
     chef: { queue: [], cooking: null, t: 0, dur: 0, dishes: [] },
     nextId: 1,
   };
-  const n = 4 + save.up.tables;
+  const n = Math.min(info.tables, L.tables.length);
   for (let i = 0; i < n; i++) G.tables.push({ i, x: L.tables[i][0], y: L.tables[i][1], group: null });
   return G;
 }
@@ -45,7 +47,7 @@ export function queueGroups(G) {
 
 function spawnGroup(G) {
   const types = TYPES.filter(t => t.day <= G.day);
-  const size = Math.random() < (G.day >= 2 ? 0.55 : 0.3) ? 2 : 1;
+  const size = Math.random() < Math.min(0.75, 0.25 + G.day * 0.06) ? 2 : 1;
   const members = [];
   for (let k = 0; k < size; k++) members.push({ type: pick(types), scarf: pick(SCARVES) });
   const drain = members.reduce((s, m) => s + m.type.drain, 0) / size;
@@ -57,6 +59,7 @@ function spawnGroup(G) {
     table: null, order: [], happy: true,
   });
   G.spawned++;
+  SFX.enter();
 }
 
 function bump(g, amt) { g.patience = Math.min(100, g.patience + amt); }
@@ -138,7 +141,7 @@ function payGroup(G, g) {
   const t = g.table;
   addFx(G, t.x, t.y - 60, `+${total}$`, '#f4b400', true);
   if (tip > 0) addFx(G, t.x, t.y - 30, `tip ${tip}$`, '#27ae60');
-  SFX.coin();
+  SFX.cash();
   g.x = t.x; g.y = t.y + 20;
   leaveGroup(G, g, true);
 }
@@ -217,7 +220,8 @@ function updatePenny(G, dt) {
   if (!p.current) return;
   const spot = actionSpot(G, p.current);
   if (!spot) { p.current = null; return; }
-  if (moveToward(p, spot.x, spot.y, pennySpeed(G.save), dt)) {
+  const boost = G.effects.speed > 0 ? SPEED_BOOST : 1;
+  if (moveToward(p, spot.x, spot.y, pennySpeed(G.save) * boost, dt)) {
     perform(G, p.current);
     p.current = null;
   }
@@ -238,12 +242,12 @@ function updateChef(G, dt) {
     }
   }
   if (c.cooking) {
-    c.t += dt;
+    c.t += dt * (G.effects.cook > 0 ? COOK_BOOST : 1);
     if (c.t >= c.dur) {
       const g = G.groups.find(x => x.id === c.cooking);
       if (g && g.table) {
         G.trays.push({ id: G.nextId++, groupId: g.id, tableNo: g.table.i + 1, dishes: c.dishes });
-        SFX.ding();
+        SFX.ready();
       }
       c.cooking = null;
     }
@@ -261,12 +265,14 @@ function addFx(G, x, y, str, color, big = false) {
 export function update(G, dt) {
   if (G.finished) return;
   G.time += dt;
+  G.effects.speed = Math.max(0, G.effects.speed - dt);
+  G.effects.cook = Math.max(0, G.effects.cook - dt);
   if (G.spawned < G.total) {
     G.nextSpawn -= dt;
     if (G.nextSpawn <= 0) {
       if (queueGroups(G).length < G.L.queueMax) {
         spawnGroup(G);
-        const interval = Math.max(3.8, 10.5 - G.day * 0.7);
+        const interval = Math.max(2.8, 10.5 - G.day * 0.75);
         G.nextSpawn = rand(interval * 0.7, interval * 1.25);
       } else {
         G.nextSpawn = 1;
@@ -290,7 +296,36 @@ export function hudSnapshot(G) {
     goal: G.goal,
     left: (G.total - G.spawned) + G.groups.filter(g => g.state !== 'leaving').length,
     wallet: G.save.wallet,
+    speed: Math.ceil(G.effects.speed),
+    cook: Math.ceil(G.effects.cook),
   };
+}
+
+// ---------------- Thuốc ----------------
+
+/** Dùng một lọ thuốc; trả về true nếu dùng được. */
+export function applyPotion(G, id) {
+  const pot = POTIONS.find(p => p.id === id);
+  if (!pot || G.finished || !(G.save.potions[id] > 0)) return false;
+  G.save.potions[id]--;
+  const p = G.penny;
+  if (id === 'speed') {
+    G.effects.speed += pot.duration;
+    addFx(G, p.x, p.y - 90, '⚡ Chạy nhanh!', '#f39c12', true);
+  } else if (id === 'cook') {
+    G.effects.cook += pot.duration;
+    const cx = G.L.stoveX + 90;
+    addFx(G, cx, 60, '🔥 Nấu nhanh!', '#e74c3c', true);
+  } else if (id === 'joy') {
+    for (const g of G.groups) {
+      if (g.state === 'leaving') continue;
+      g.patience = 100;
+      const a = g.table && g.state !== 'toTable' ? g.table : g;
+      addFx(G, a.x, a.y - 70, '💖', '#ff5c8a', true);
+    }
+  }
+  sfx(520, 0.25, 'sine', 0.08, 500);
+  return true;
 }
 
 // ---------------- Điều khiển ----------------
@@ -305,7 +340,8 @@ function hitQueueGroup(G, x, y) {
 function hitTable(G, x, y) {
   const s = slop(G);
   return G.tables.find(tb => {
-    const dx = (x - tb.x) / (95 + s), dy = (y - (tb.y - 10)) / (60 + s);
+    const { rx, ry } = G.L.tableHit;
+    const dx = (x - tb.x) / (rx + s / 2), dy = (y - (tb.y - 10)) / (ry + s);
     return dx * dx + dy * dy < 1;
   });
 }
