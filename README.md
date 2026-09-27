@@ -13,7 +13,7 @@ yarn preview  # xem bản đã đóng gói
 
 ### Chơi trên điện thoại
 Chạy `yarn dev` trên máy tính, rồi mở địa chỉ **Network** mà Vite in ra (ví dụ `http://192.168.1.5:5173`)
-bằng trình duyệt điện thoại **cùng mạng Wi-Fi**. Nên xoay ngang máy; nút ⛶ để bật toàn màn hình.
+bằng trình duyệt điện thoại **cùng mạng Wi-Fi**. Cầm dọc hay xoay ngang đều chơi được (mỗi hướng có bố cục riêng); nút ⛶ để bật toàn màn hình.
 
 ## Cách chơi
 1. Kéo khách đang chờ bên trái vào bàn trống.

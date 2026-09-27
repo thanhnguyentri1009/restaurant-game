@@ -1,5 +1,3 @@
-export const W = 960, H = 600;
-
 export const KINDS = { food: 'Món ăn', drink: 'Đồ uống', dessert: 'Tráng miệng' };
 
 export const DISHES = [
@@ -30,12 +28,39 @@ export const UPGRADES = [
   { id: 'decor',  icon: '🎄', name: 'Trang trí',       desc: 'Khách kiên nhẫn hơn',       costs: [90, 180] },
 ];
 
-export const TABLE_POS = [[340, 290], [580, 290], [340, 470], [580, 470], [820, 290], [820, 470]];
-export const QUEUE_X = 76, QUEUE_Y0 = 250, QUEUE_GAP = 88, QUEUE_MAX = 4;
-export const ENTRY = { x: -50, y: 575 };
-export const KITCHEN_SPOT = { x: 262, y: 172 };
-export const RAIL = { x: 212, y: 30, w: 100, h: 120 };
-export const TRAY_X0 = 560, TRAY_GAP = 78, TRAY_Y = 116, TRAY_MAX = 5;
+// Hai bố cục: ngang (máy tính / điện thoại xoay ngang) và dọc (điện thoại cầm dọc).
+// Logic game giống nhau, chỉ khác toạ độ.
+export const LAYOUTS = {
+  landscape: {
+    name: 'landscape', W: 960, H: 600,
+    tables: [[340, 290], [580, 290], [340, 470], [580, 470], [820, 290], [820, 470]],
+    queueSlot: k => ({ x: 76, y: 250 + k * 88 }), queueMax: 4,
+    entry: { x: -50, y: 575 },
+    penny: { x: 580, y: 380 },
+    rail: { x: 212, y: 30, w: 100 }, kitchenSpot: { x: 262, y: 172 },
+    trayX0: 560, trayGap: 78, trayY: 116, trayMax: 5, pickupY: 172,
+    counterX0: 200, window: { x: 22, y: 18 }, title: { x: 84, y: 132 },
+    board: { x: 610, y: 8, w: 330 }, stoveX: 340,
+    rug: { x: 0, y: 150, w: 150, h: 450, rope: 'v' },
+    lanterns: [200, 940].map(x => [x, 540]), trees: [936, 210].map(x => [x, 205]),
+    hint: { x: 550, y: 578 },
+  },
+  portrait: {
+    name: 'portrait', W: 600, H: 1000,
+    tables: [[170, 310], [430, 310], [170, 500], [430, 500], [170, 690], [430, 690]],
+    queueSlot: k => ({ x: 510 - k * 112, y: 952 }), queueMax: 4,
+    entry: { x: -50, y: 952 },
+    penny: { x: 300, y: 600 },
+    rail: { x: 10, y: 30, w: 100 }, kitchenSpot: { x: 60, y: 172 },
+    trayX0: 172, trayGap: 74, trayY: 116, trayMax: 4, pickupY: 172,
+    counterX0: 0, window: null, title: null,
+    board: { x: 120, y: 8, w: 292 }, stoveX: 420,
+    rug: { x: 0, y: 872, w: 600, h: 128, rope: 'h' },
+    lanterns: [[22, 800], [578, 800]], trees: [[32, 205], [568, 205]],
+    hint: { x: 300, y: 842 },
+  },
+};
+
 export const WAITING = ['arriving', 'queue', 'order', 'waitFood', 'pay'];
 
 export const pennySpeed = save => 210 + 55 * save.up.shoes;

@@ -12,7 +12,7 @@ export function StartScreen({ day, onPlay, onReset }) {
         <h1>🐧 Nhà Hàng Penny</h1>
         <p>Giúp cô chim cánh cụt Penny điều hành nhà hàng giữa Nam Cực!</p>
         <ol>
-          <li><b>Kéo khách</b> đang chờ bên trái vào <b>bàn trống</b>.</li>
+          <li><b>Kéo khách</b> đang chờ ở thảm hồng vào <b>bàn trống</b>.</li>
           <li>Khi khách hiện <b>❗</b>, bấm vào bàn để <b>ghi món</b>.</li>
           <li>Bấm <b>bảng ĐƠN</b> để đưa đơn cho đầu bếp.</li>
           <li>Món nấu xong nằm trên quầy — bấm để <b>bưng</b>, rồi bấm bàn có <b>số trùng</b>.</li>

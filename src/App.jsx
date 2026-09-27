@@ -7,6 +7,21 @@ import { goalFor, UPGRADES } from './game/data.js';
 import { loadSave, writeSave, freshSave } from './game/save.js';
 import { sfx, SFX } from './game/audio.js';
 
+// Điện thoại cầm dọc thì dùng bố cục dọc, còn lại dùng bố cục ngang
+const PORTRAIT_QUERY = '(orientation: portrait) and (max-width: 820px)';
+const currentLayout = () => (window.matchMedia(PORTRAIT_QUERY).matches ? 'portrait' : 'landscape');
+
+function useLayout() {
+  const [layout, setLayout] = useState(currentLayout);
+  useEffect(() => {
+    const mq = window.matchMedia(PORTRAIT_QUERY);
+    const onChange = () => setLayout(currentLayout());
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, []);
+  return layout;
+}
+
 export default function App() {
   // save được engine sửa trực tiếp (ví tiền), nên giữ trong ref và refresh() khi cần vẽ lại
   const saveRef = useRef(null);
@@ -14,6 +29,7 @@ export default function App() {
   const save = saveRef.current;
   const gameRef = useRef(null);
   const [, refresh] = useReducer(x => x + 1, 0);
+  const layout = useLayout();
 
   const [screen, setScreen] = useState('start'); // start | play | paused | dayEnd
   const [hud, setHud] = useState(null);
@@ -21,7 +37,7 @@ export default function App() {
 
   const startDay = () => {
     sfx(660, 0.1);
-    gameRef.current = createGame(save);
+    gameRef.current = createGame(save, layout);
     setResult(null);
     setScreen('play');
   };
@@ -91,11 +107,10 @@ export default function App() {
     : { day: save.day, earned: 0, goal: goalFor(save.day), left: '-', wallet: save.wallet };
 
   return (
-    <main id="wrap">
-      <div className="rotate-hint">📱↻ Xoay ngang điện thoại để chơi dễ hơn</div>
+    <main id="wrap" className={(gameRef.current ? gameRef.current.L.name : layout) === 'portrait' ? 'portrait' : ''}>
       <Hud {...hudData} onPause={togglePause} canPause={screen === 'play' || screen === 'paused'} />
       <div id="stage">
-        <GameCanvas gameRef={gameRef} running={screen === 'play'} onHud={handleHud} onDayEnd={handleDayEnd} />
+        <GameCanvas gameRef={gameRef} layout={layout} running={screen === 'play'} onHud={handleHud} onDayEnd={handleDayEnd} />
         {screen === 'start' && <StartScreen day={save.day} onPlay={startDay} onReset={resetAll} />}
         {screen === 'paused' && <PauseScreen onResume={togglePause} onQuit={toMenu} />}
         {screen === 'dayEnd' && result && (

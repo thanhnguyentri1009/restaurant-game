@@ -1,8 +1,7 @@
 // Logic game: trạng thái được giữ trong một object G có thể thay đổi (mutable),
 // React chỉ đọc ra để hiển thị HUD và các màn hình.
 import {
-  W, H, TYPES, SCARVES, TABLE_POS, QUEUE_X, QUEUE_Y0, QUEUE_GAP, QUEUE_MAX, ENTRY,
-  KITCHEN_SPOT, RAIL, TRAY_X0, TRAY_GAP, TRAY_MAX, WAITING,
+  LAYOUTS, TYPES, SCARVES, WAITING,
   pennySpeed, cookMul, capacity, decorDrain, goalFor, menuFor, dish,
 } from './data.js';
 import { sfx, SFX } from './audio.js';
@@ -20,20 +19,21 @@ function moveToward(o, tx, ty, speed, dt) {
   return false;
 }
 
-export function createGame(save) {
+export function createGame(save, layout = 'landscape') {
   const day = save.day;
+  const L = LAYOUTS[layout];
   const G = {
-    save, day, time: 0, earned: 0, goal: goalFor(day),
+    save, L, day, time: 0, earned: 0, goal: goalFor(day),
     total: Math.min(6 + day * 2, 24), spawned: 0, nextSpawn: 1.2,
     served: 0, lost: 0, finished: false,
     groups: [], tables: [], trays: [], fx: [],
     selected: null, dragging: false, downAt: null, pointer: { x: 0, y: 0 },
-    penny: { x: 580, y: 380, face: 1, walk: 0, queue: [], current: null, carry: [], tickets: [] },
+    penny: { x: L.penny.x, y: L.penny.y, face: 1, walk: 0, queue: [], current: null, carry: [], tickets: [] },
     chef: { queue: [], cooking: null, t: 0, dur: 0, dishes: [] },
     nextId: 1,
   };
   const n = 4 + save.up.tables;
-  for (let i = 0; i < n; i++) G.tables.push({ i, x: TABLE_POS[i][0], y: TABLE_POS[i][1], group: null });
+  for (let i = 0; i < n; i++) G.tables.push({ i, x: L.tables[i][0], y: L.tables[i][1], group: null });
   return G;
 }
 
@@ -53,7 +53,7 @@ function spawnGroup(G) {
   G.groups.push({
     id: G.nextId++, members, size, drain, tip,
     state: 'arriving', patience: 100, timer: 0,
-    x: ENTRY.x, y: ENTRY.y, face: 1, walk: 0,
+    x: G.L.entry.x, y: G.L.entry.y, face: 1, walk: 0,
     table: null, order: [], happy: true,
   });
   G.spawned++;
@@ -98,7 +98,8 @@ function updateGroup(G, g, dt) {
     case 'arriving':
     case 'queue': {
       const k = queueGroups(G).indexOf(g);
-      if (moveToward(g, QUEUE_X, QUEUE_Y0 + k * QUEUE_GAP, 170, dt)) { g.state = 'queue'; g.face = 1; }
+      const slot = G.L.queueSlot(k);
+      if (moveToward(g, slot.x, slot.y, 170, dt)) { g.state = 'queue'; g.face = 1; }
       break;
     }
     case 'toTable':
@@ -121,7 +122,7 @@ function updateGroup(G, g, dt) {
       if (g.timer <= 0) { g.state = 'pay'; bump(g, 10); }
       break;
     case 'leaving':
-      if (moveToward(g, ENTRY.x, ENTRY.y, g.happy ? 220 : 280, dt)) g.state = 'gone';
+      if (moveToward(g, G.L.entry.x, G.L.entry.y, g.happy ? 220 : 280, dt)) g.state = 'gone';
       break;
   }
 }
@@ -146,11 +147,11 @@ function payGroup(G, g) {
 
 export function actionSpot(G, a) {
   if (a.type === 'table') { const t = G.tables[a.idx]; return { x: t.x, y: t.y + 64 }; }
-  if (a.type === 'kitchen') return KITCHEN_SPOT;
+  if (a.type === 'kitchen') return G.L.kitchenSpot;
   if (a.type === 'tray') {
     const k = G.trays.findIndex(t => t.id === a.trayId);
     if (k < 0) return null;
-    return { x: TRAY_X0 + k * TRAY_GAP, y: 172 };
+    return { x: G.L.trayX0 + k * G.L.trayGap, y: G.L.pickupY };
   }
   return null;
 }
@@ -226,7 +227,7 @@ function updatePenny(G, dt) {
 
 function updateChef(G, dt) {
   const c = G.chef;
-  if (!c.cooking && c.queue.length && G.trays.length < TRAY_MAX) {
+  if (!c.cooking && c.queue.length && G.trays.length < G.L.trayMax) {
     const id = c.queue.shift();
     const g = G.groups.find(x => x.id === id);
     if (g) {
@@ -263,7 +264,7 @@ export function update(G, dt) {
   if (G.spawned < G.total) {
     G.nextSpawn -= dt;
     if (G.nextSpawn <= 0) {
-      if (queueGroups(G).length < QUEUE_MAX) {
+      if (queueGroups(G).length < G.L.queueMax) {
         spawnGroup(G);
         const interval = Math.max(3.8, 10.5 - G.day * 0.7);
         G.nextSpawn = rand(interval * 0.7, interval * 1.25);
@@ -310,11 +311,12 @@ function hitTable(G, x, y) {
 }
 function hitRail(G, x, y) {
   const s = slop(G);
-  return x > RAIL.x - 10 - s && x < 330 + s && y > RAIL.y - s && y < 190 + s;
+  const r = G.L.rail;
+  return x > r.x - 10 - s && x < r.x + r.w + 18 + s && y > r.y - s && y < 190 + s;
 }
 function hitTray(G, x, y) {
   const s = slop(G) / 2;
-  return G.trays.find((tr, k) => Math.abs(x - (TRAY_X0 + k * TRAY_GAP)) < 36 + s && y > 76 - s && y < 150 + s);
+  return G.trays.find((tr, k) => Math.abs(x - (G.L.trayX0 + k * G.L.trayGap)) < Math.min(36 + s, G.L.trayGap / 2) && y > 76 - s && y < 150 + s);
 }
 
 /** Trả về true nếu bắt đầu kéo khách (để canvas giữ con trỏ). */
@@ -360,4 +362,3 @@ export function pointerUp(G, x, y) {
   if (Math.hypot(x - G.downAt.x, y - G.downAt.y) > 20) G.selected = null;
 }
 
-export { W, H };

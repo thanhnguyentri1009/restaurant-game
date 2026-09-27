@@ -1,5 +1,5 @@
 // Vẽ toàn bộ game lên canvas (không dùng file ảnh).
-import { W, H, RAIL, TRAY_X0, TRAY_GAP, TRAY_Y, capacity, menuFor, dish } from './data.js';
+import { LAYOUTS, capacity, menuFor, dish } from './data.js';
 import { actionSpot, isQueued } from './engine.js';
 
 const EMOJI = '"Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif';
@@ -8,6 +8,7 @@ const FONT = '"Baloo 2","Segoe UI",system-ui,sans-serif';
 // ctx và G được gán mỗi khung hình trong render()
 let ctx = null;
 let G = null;
+let W = 960, H = 600;
 
 function ellipse(x, y, rx, ry, rot = 0) {
   ctx.beginPath();
@@ -140,7 +141,47 @@ function memberStyle(m, extra = {}) {
   };
 }
 
+function drawRug() {
+  const r = G.L.rug;
+  ctx.fillStyle = '#f7d9e6';
+  ctx.fillRect(r.x, r.y, r.w, r.h);
+  ctx.fillStyle = 'rgba(255,111,168,.25)';
+  ctx.strokeStyle = '#d63f7f'; ctx.lineWidth = 4;
+  if (r.rope === 'v') {
+    for (let y = r.y + 10; y < r.y + r.h; y += 28) ctx.fillRect(r.x + 10, y, r.w - 20, 10);
+    const x = r.x + r.w;
+    ctx.beginPath(); ctx.moveTo(x, 190); ctx.quadraticCurveTo(x + 8, 340, x, 480); ctx.stroke();
+    ctx.fillStyle = '#c9a227';
+    for (const y of [190, 480]) { ctx.fillRect(x - 6, y - 20, 12, 40); ellipse(x, y - 22, 8, 8); }
+  } else {
+    for (let x = r.x + 10; x < r.x + r.w; x += 28) ctx.fillRect(x, r.y + 12, 10, r.h - 20);
+    const y = r.y, x0 = 40, x1 = W - 40;
+    ctx.beginPath(); ctx.moveTo(x0, y - 16); ctx.quadraticCurveTo(W / 2, y - 6, x1, y - 16); ctx.stroke();
+    ctx.fillStyle = '#c9a227';
+    for (const x of [x0, x1]) { ctx.fillRect(x - 6, y - 36, 12, 40); ellipse(x, y - 38, 8, 8); }
+  }
+}
+
+function drawWindow(wx, wy, t) {
+  ctx.fillStyle = '#fff';
+  rrect(wx, wy, 124, 92, 10); ctx.fill();
+  ctx.fillStyle = '#1b3b63';
+  rrect(wx + 8, wy + 8, 108, 76, 6); ctx.fill();
+  ctx.fillStyle = '#f5fbff';
+  ctx.beginPath();
+  ctx.moveTo(wx + 8, wy + 84); ctx.lineTo(wx + 38, wy + 52); ctx.lineTo(wx + 63, wy + 72);
+  ctx.lineTo(wx + 88, wy + 44); ctx.lineTo(wx + 116, wy + 84);
+  ctx.fill();
+  for (let k = 0; k < 14; k++) {
+    ctx.fillStyle = '#fff';
+    ellipse(wx + 8 + ((k * 37 + t * 12) % 108), wy + 8 + ((k * 23 + t * (18 + k)) % 76), 1.6, 1.6);
+  }
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(wx + 60, wy + 8, 4, 76);
+}
+
 function drawBackground(t) {
+  const L = G.L;
   // sàn băng
   for (let j = 0; j * 40 + 150 < H; j++) {
     for (let i = 0; i * 40 < W; i++) {
@@ -148,18 +189,7 @@ function drawBackground(t) {
       ctx.fillRect(i * 40, 150 + j * 40, 40, 40);
     }
   }
-  // khu chờ
-  ctx.fillStyle = '#f7d9e6';
-  ctx.fillRect(0, 150, 150, H - 150);
-  ctx.fillStyle = 'rgba(255,111,168,.25)';
-  for (let y = 160; y < H; y += 28) ctx.fillRect(10, y, 130, 10);
-  // dây ngăn
-  ctx.strokeStyle = '#d63f7f'; ctx.lineWidth = 4;
-  ctx.beginPath(); ctx.moveTo(150, 190);
-  ctx.quadraticCurveTo(158, 340, 150, 480);
-  ctx.stroke();
-  ctx.fillStyle = '#c9a227';
-  for (const y of [190, 480]) { ctx.fillRect(144, y - 20, 12, 40); ellipse(150, y - 22, 8, 8); }
+  drawRug();
 
   // tường
   const grd = ctx.createLinearGradient(0, 0, 0, 150);
@@ -167,83 +197,74 @@ function drawBackground(t) {
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, W, 150);
   // gạch bếp
+  const x0 = L.counterX0;
   ctx.fillStyle = '#eaf4fa';
-  ctx.fillRect(200, 0, W - 200, 118);
+  ctx.fillRect(x0, 0, W - x0, 118);
   ctx.strokeStyle = '#cfe0eb'; ctx.lineWidth = 1;
   for (let y = 0; y < 118; y += 20) {
-    ctx.beginPath(); ctx.moveTo(200, y); ctx.lineTo(W, y); ctx.stroke();
-    for (let x = 200 + ((y / 20) % 2) * 20; x < W; x += 40) {
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(W, y); ctx.stroke();
+    for (let x = x0 + ((y / 20) % 2) * 20; x < W; x += 40) {
       ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + 20); ctx.stroke();
     }
   }
-  // cửa sổ tuyết
-  ctx.fillStyle = '#fff';
-  rrect(22, 18, 124, 92, 10); ctx.fill();
-  ctx.fillStyle = '#1b3b63';
-  rrect(30, 26, 108, 76, 6); ctx.fill();
-  ctx.fillStyle = '#f5fbff';
-  ctx.beginPath(); ctx.moveTo(30, 102); ctx.lineTo(60, 70); ctx.lineTo(85, 90); ctx.lineTo(110, 62); ctx.lineTo(138, 102); ctx.fill();
-  for (let k = 0; k < 14; k++) {
-    const sx = 30 + ((k * 37 + t * 12) % 108);
-    const sy = 26 + ((k * 23 + t * (18 + k)) % 76);
-    ctx.fillStyle = '#fff';
-    ellipse(sx, sy, 1.6, 1.6);
-  }
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(82, 26, 4, 76);
-  text('Nhà Hàng Penny', 84, 132, 17, '#fff', 800);
+  if (L.window) drawWindow(L.window.x, L.window.y, t);
+  if (L.title) text('Nhà Hàng Penny', L.title.x, L.title.y, 17, '#fff', 800);
 
   // bảng thực đơn
+  const b = L.board, cx = b.x + b.w / 2;
   ctx.fillStyle = '#2d3e50';
-  rrect(610, 8, 330, 66, 10); ctx.fill();
+  rrect(b.x, b.y, b.w, 66, 10); ctx.fill();
   ctx.strokeStyle = '#c98b55'; ctx.lineWidth = 4; ctx.stroke();
-  text('THỰC ĐƠN', 775, 20, 13, '#f4d58d', 800);
+  text('THỰC ĐƠN', cx, b.y + 12, 13, '#f4d58d', 800);
   const menu = menuFor(G.day);
-  const gap = Math.min(54, 300 / menu.length);
+  const gap = Math.min(54, (b.w - 30) / menu.length);
   menu.forEach((d, k) => {
-    const x = 775 + (k - (menu.length - 1) / 2) * gap;
-    emoji(d.emoji, x, 44, 20);
-    text(d.price + '$', x, 64, 12, '#fff', 700);
+    const x = cx + (k - (menu.length - 1) / 2) * gap;
+    emoji(d.emoji, x, b.y + 36, 20);
+    text(d.price + '$', x, b.y + 56, 12, '#fff', 700);
   });
 
   // bếp
+  const sx = L.stoveX;
   ctx.fillStyle = '#95a5b3';
-  rrect(340, 40, 170, 78, 8); ctx.fill();
+  rrect(sx, 40, 170, 78, 8); ctx.fill();
   ctx.fillStyle = '#2c3e50';
-  ellipse(385, 58, 20, 6); ellipse(465, 58, 20, 6);
+  ellipse(sx + 45, 58, 20, 6); ellipse(sx + 125, 58, 20, 6);
   ctx.fillStyle = '#7f8c8d';
-  rrect(362, 30, 46, 26, 6); ctx.fill();
-  rrect(442, 34, 46, 22, 6); ctx.fill();
+  rrect(sx + 22, 30, 46, 26, 6); ctx.fill();
+  rrect(sx + 102, 34, 46, 22, 6); ctx.fill();
   ctx.fillStyle = '#34495e';
-  rrect(350, 80, 150, 32, 6); ctx.fill();
+  rrect(sx + 10, 80, 150, 32, 6); ctx.fill();
   ctx.fillStyle = '#e67e22';
-  ellipse(385, 96, 8, 5); ellipse(465, 96, 8, 5);
+  ellipse(sx + 45, 96, 8, 5); ellipse(sx + 125, 96, 8, 5);
 
   // bảng đơn
+  const R = L.rail;
   const hot = G.penny.tickets.length > 0;
   ctx.fillStyle = hot ? '#ffe28a' : '#c98b55';
-  rrect(RAIL.x, RAIL.y, RAIL.w, 84, 8); ctx.fill();
+  rrect(R.x, R.y, R.w, 84, 8); ctx.fill();
   ctx.fillStyle = '#8e5b32';
-  ctx.fillRect(RAIL.x + 8, RAIL.y + 10, RAIL.w - 16, 4);
-  text('ĐƠN', RAIL.x + RAIL.w / 2, RAIL.y + 28, 16, '#4a2d14', 800);
+  ctx.fillRect(R.x + 8, R.y + 10, R.w - 16, 4);
+  text('ĐƠN', R.x + R.w / 2, R.y + 28, 16, '#4a2d14', 800);
   const pending = G.chef.queue.length + (G.chef.cooking ? 1 : 0);
   for (let k = 0; k < Math.min(pending, 4); k++) {
     ctx.fillStyle = '#fffbe6';
-    ctx.fillRect(RAIL.x + 10 + k * 20, RAIL.y + 44, 16, 26);
+    ctx.fillRect(R.x + 10 + k * 20, R.y + 44, 16, 26);
     ctx.fillStyle = '#c0392b';
-    ctx.fillRect(RAIL.x + 10 + k * 20, RAIL.y + 44, 16, 4);
+    ctx.fillRect(R.x + 10 + k * 20, R.y + 44, 16, 4);
   }
   if (hot) {
     const a = 0.5 + 0.5 * Math.sin(t * 8);
     ctx.strokeStyle = `rgba(255,111,168,${a})`; ctx.lineWidth = 4;
-    rrect(RAIL.x - 3, RAIL.y - 3, RAIL.w + 6, 90, 10); ctx.stroke();
+    rrect(R.x - 3, R.y - 3, R.w + 6, 90, 10); ctx.stroke();
   }
 }
 
 function drawChef(t) {
   const c = G.chef;
   const busy = !!c.cooking;
-  drawPenguin(430, 128, 0.85, {
+  const sx = G.L.stoveX, cx = sx + 90;
+  drawPenguin(cx, 128, 0.85, {
     chefHat: true, face: busy ? (Math.sin(t * 6) > 0 ? 1 : -1) : 1,
     flap: busy ? Math.sin(t * 16) * 0.3 : 0, bob: busy ? Math.abs(Math.sin(t * 8)) * 2 : 0,
   });
@@ -252,15 +273,15 @@ function drawChef(t) {
   for (let k = 0; k < 3; k++) {
     const p = (t * 0.8 + k / 3) % 1;
     ctx.fillStyle = `rgba(255,255,255,${0.7 * (1 - p)})`;
-    ellipse(385 + k * 40, 50 - p * 40, 6 + p * 8, 5 + p * 6);
+    ellipse(sx + 45 + k * 40, 50 - p * 40, 6 + p * 8, 5 + p * 6);
   }
   ctx.fillStyle = '#fff';
-  rrect(378, 2, 104, 26, 8); ctx.fill();
+  rrect(cx - 52, 2, 104, 26, 8); ctx.fill();
   ctx.fillStyle = '#dfe8ef';
-  rrect(386, 18, 88, 6, 3); ctx.fill();
+  rrect(cx - 44, 18, 88, 6, 3); ctx.fill();
   ctx.fillStyle = '#2ecc71';
-  rrect(386, 18, 88 * Math.min(1, c.t / c.dur), 6, 3); ctx.fill();
-  c.dishes.forEach((d, k) => emoji(dish(d).emoji, 430 + (k - (c.dishes.length - 1) / 2) * 20, 10, 13));
+  rrect(cx - 44, 18, 88 * Math.min(1, c.t / c.dur), 6, 3); ctx.fill();
+  c.dishes.forEach((d, k) => emoji(dish(d).emoji, cx + (k - (c.dishes.length - 1) / 2) * 20, 10, 13));
 }
 
 function drawPlate(x, y, dishes, s = 1) {
@@ -274,50 +295,51 @@ function drawPlate(x, y, dishes, s = 1) {
 }
 
 function drawCounter(t) {
+  const L = G.L, x0 = L.counterX0;
   ctx.fillStyle = '#b87843';
-  ctx.fillRect(200, 118, W - 200, 32);
+  ctx.fillRect(x0, 118, W - x0, 32);
   ctx.fillStyle = '#e0a96d';
-  ctx.fillRect(196, 110, W - 196, 12);
+  ctx.fillRect(Math.max(0, x0 - 4), 110, W - x0 + 4, 12);
   ctx.fillStyle = 'rgba(0,0,0,.08)';
-  for (let x = 220; x < W; x += 60) ctx.fillRect(x, 124, 3, 24);
+  for (let x = x0 + 20; x < W; x += 60) ctx.fillRect(x, 124, 3, 24);
 
   G.trays.forEach((tr, k) => {
-    const x = TRAY_X0 + k * TRAY_GAP;
+    const x = L.trayX0 + k * L.trayGap, y = L.trayY;
     const queued = isQueued(G, a => a.type === 'tray' && a.trayId === tr.id);
     if (queued || G.penny.carry.length < capacity(G.save)) {
       const a = 0.35 + 0.35 * Math.sin(t * 6);
       ctx.fillStyle = `rgba(255,230,120,${queued ? 0.6 : a})`;
-      ellipse(x, TRAY_Y, 38, 14);
+      ellipse(x, y, 36, 14);
     }
-    drawPlate(x, TRAY_Y, tr.dishes, 0.9);
+    drawPlate(x, y, tr.dishes, 0.9);
     ctx.fillStyle = '#1d3557';
-    ellipse(x + 26, TRAY_Y + 20, 10, 10);
-    text(String(tr.tableNo), x + 26, TRAY_Y + 21, 13, '#fff', 800);
+    ellipse(x + 24, y + 20, 10, 10);
+    text(String(tr.tableNo), x + 24, y + 21, 13, '#fff', 800);
   });
 }
 
 function drawDecor(t) {
   const lvl = G.save.up.decor;
   if (lvl >= 1) {
-    for (const x of [200, 940]) {
+    for (const [x, y] of G.L.lanterns) {
       ctx.fillStyle = '#bfe9ff';
-      rrect(x - 10, 540, 20, 40, 6); ctx.fill();
+      rrect(x - 10, y, 20, 40, 6); ctx.fill();
       ctx.fillStyle = `rgba(255,240,150,${0.6 + 0.3 * Math.sin(t * 3 + x)})`;
-      ellipse(x, 556, 6, 9);
+      ellipse(x, y + 16, 6, 9);
     }
   }
   if (lvl >= 2) {
-    for (const x of [936, 210]) {
-      ctx.fillStyle = '#8e5b32'; ctx.fillRect(x - 4, 205, 8, 16);
+    for (const [x, y] of G.L.trees) {
+      ctx.fillStyle = '#8e5b32'; ctx.fillRect(x - 4, y, 8, 16);
       ctx.fillStyle = '#2e8b57';
       for (let k = 0; k < 3; k++) {
         ctx.beginPath();
-        ctx.moveTo(x, 160 + k * 12);
-        ctx.lineTo(x - 18 + k * 2, 190 + k * 10);
-        ctx.lineTo(x + 18 - k * 2, 190 + k * 10);
+        ctx.moveTo(x, y - 45 + k * 12);
+        ctx.lineTo(x - 18 + k * 2, y - 15 + k * 10);
+        ctx.lineTo(x + 18 - k * 2, y - 15 + k * 10);
         ctx.fill();
       }
-      ctx.fillStyle = '#f4d03f'; ellipse(x, 158, 4, 4);
+      ctx.fillStyle = '#f4d03f'; ellipse(x, y - 47, 4, 4);
     }
   }
 }
@@ -504,8 +526,9 @@ function drawHint() {
   ctx.font = `700 16px ${FONT}`;
   const w = ctx.measureText(h).width + 28;
   ctx.fillStyle = 'rgba(29,53,87,.85)';
-  rrect(W / 2 - w / 2 + 70, H - 38, w, 30, 15); ctx.fill();
-  text('💡 ' + h, W / 2 + 70, H - 22, 16, '#fff', 700);
+  const { x, y } = G.L.hint;
+  rrect(x - w / 2, y - 15, w, 30, 15); ctx.fill();
+  text('💡 ' + h, x, y + 1, 16, '#fff', 700);
 }
 
 function drawTitleBackdrop(t) {
@@ -514,18 +537,21 @@ function drawTitleBackdrop(t) {
   ctx.fillStyle = grd;
   ctx.fillRect(0, 0, W, H);
   ctx.fillStyle = '#f5fbff';
-  ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(180, 430); ctx.lineTo(330, 520); ctx.lineTo(560, 380); ctx.lineTo(780, 500); ctx.lineTo(W, 420); ctx.lineTo(W, H); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(0, H);
+  for (const [fx, fy] of [[0.19, 0.72], [0.34, 0.87], [0.58, 0.63], [0.81, 0.83], [1, 0.7]]) ctx.lineTo(W * fx, H * fy);
+  ctx.lineTo(W, H); ctx.fill();
   for (let k = 0; k < 60; k++) {
     ctx.fillStyle = 'rgba(255,255,255,.8)';
     ellipse((k * 97 + t * 15) % W, (k * 53 + t * (20 + k % 20)) % H, 2, 2);
   }
-  drawPenguin(820, 540, 1.6, { bow: true, apron: true, blush: true, face: -1, bob: Math.abs(Math.sin(t * 3)) * 5 });
-  drawPenguin(130, 560, 1.2, { scarf: '#3498db', bob: Math.abs(Math.sin(t * 3 + 1)) * 4 });
+  drawPenguin(W * 0.85, H * 0.9, 1.6, { bow: true, apron: true, blush: true, face: -1, bob: Math.abs(Math.sin(t * 3)) * 5 });
+  drawPenguin(W * 0.14, H * 0.93, 1.2, { scarf: '#3498db', bob: Math.abs(Math.sin(t * 3 + 1)) * 4 });
 }
 
-export function render(context, game, t) {
+export function render(context, game, t, layout = 'landscape') {
   ctx = context;
   G = game;
+  ({ W, H } = G ? G.L : LAYOUTS[layout]);
   ctx.clearRect(0, 0, W, H);
   if (!G) { drawTitleBackdrop(t); return; }
   drawBackground(t);
