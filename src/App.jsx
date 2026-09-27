@@ -7,6 +7,7 @@ import { createGame, applyPotion } from './game/engine.js';
 import { goalFor, UPGRADES, POTIONS } from './game/data.js';
 import { loadSave, writeSave, freshSave } from './game/save.js';
 import { sfx, SFX } from './game/audio.js';
+import { music } from './game/music.js';
 
 // Điện thoại cầm dọc thì dùng bố cục dọc, còn lại dùng bố cục ngang
 const PORTRAIT_QUERY = '(orientation: portrait) and (max-width: 820px)';
@@ -36,6 +37,9 @@ export default function App() {
   const screenRef = useRef(screen);
   screenRef.current = screen;
   const [hud, setHud] = useState(null);
+  const [musicOn, setMusicOn] = useState(music.isEnabled);
+  const [unlocked, setUnlocked] = useState(false); // trình duyệt chỉ cho phát tiếng sau lần chạm đầu tiên
+  const [hidden, setHidden] = useState(document.hidden);
   const [result, setResult] = useState(null);
 
   const startDay = () => {
@@ -128,13 +132,41 @@ export default function App() {
     };
   }, [togglePause, drinkPotion]);
 
+  // Nhạc nền: phát khi đã chạm màn hình, đang bật, không tạm dừng và tab đang hiện
+  useEffect(() => {
+    if (unlocked) return;
+    const unlock = () => setUnlocked(true);
+    window.addEventListener('pointerdown', unlock, { once: true });
+    window.addEventListener('keydown', unlock, { once: true });
+    return () => {
+      window.removeEventListener('pointerdown', unlock);
+      window.removeEventListener('keydown', unlock);
+    };
+  }, [unlocked]);
+
+  useEffect(() => {
+    const onVis = () => setHidden(document.hidden);
+    document.addEventListener('visibilitychange', onVis);
+    return () => document.removeEventListener('visibilitychange', onVis);
+  }, []);
+
+  useEffect(() => {
+    if (musicOn && unlocked && !hidden && screen !== 'paused') music.start();
+    else music.stop();
+  }, [musicOn, unlocked, hidden, screen]);
+
+  const toggleMusic = () => {
+    music.setEnabled(!musicOn);
+    setMusicOn(!musicOn);
+  };
+
   const hudData = gameRef.current && hud
     ? { ...hud, wallet: save.wallet }
     : { day: save.day, earned: 0, goal: goalFor(save.day), left: '-', wallet: save.wallet };
 
   return (
     <main id="wrap" className={(gameRef.current ? gameRef.current.L.name : layout) === 'portrait' ? 'portrait' : ''}>
-      <Hud {...hudData} onPause={togglePause} canPause={screen === 'play' || screen === 'paused'} />
+      <Hud {...hudData} musicOn={musicOn} onToggleMusic={toggleMusic} onPause={togglePause} canPause={screen === 'play' || screen === 'paused'} />
       <div id="stage">
         <GameCanvas gameRef={gameRef} layout={layout} running={screen === 'play'} onHud={handleHud} onDayEnd={handleDayEnd} />
         {screen === 'start' && (

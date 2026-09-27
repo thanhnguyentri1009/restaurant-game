@@ -44,6 +44,8 @@ Penny bưng được **2 món cùng lúc** (2 tay), nâng cấp Khay lớn để
   ⚡ Chạy nhanh (x2 tốc độ, 20s) · 🔥 Nấu nhanh (x3, 20s) · 💖 Vui vẻ (đầy lại ♥ cho mọi khách)
 - **Nâng cấp** (vĩnh viễn): giày trượt băng, bếp xịn, khay lớn, trang trí.
 
+Nhạc nền lo-fi chill (tự soạn, phát bằng Web Audio), bật/tắt bằng nút 🎵 trên thanh trên cùng.
+
 Cuối ngày dùng tiền để nâng cấp. Tiến trình được lưu tự động trong trình duyệt. `Esc` để tạm dừng.
 
 ## Cấu trúc

@@ -12,7 +12,7 @@ function toggleFullscreen() {
     .catch(() => {});
 }
 
-export default function Hud({ day, earned, goal, left, wallet, onPause, canPause }) {
+export default function Hud({ day, earned, goal, left, wallet, musicOn, onToggleMusic, onPause, canPause }) {
   const [full, setFull] = useState(false);
   useEffect(() => {
     const onChange = () => setFull(!!document.fullscreenElement);
@@ -31,6 +31,9 @@ export default function Hud({ day, earned, goal, left, wallet, onPause, canPause
       </div>
       <div className="stat">🐧 <b>{left}</b></div>
       <div className="stat">Ví <b>{wallet}</b>$</div>
+      <button className="hud-btn" title={musicOn ? 'Tắt nhạc nền' : 'Bật nhạc nền'} onClick={onToggleMusic}>
+        {musicOn ? '🎵' : '🔇'}
+      </button>
       {canFullscreen && (
         <button className="hud-btn" title="Toàn màn hình" onClick={toggleFullscreen}>{full ? '🗗' : '⛶'}</button>
       )}

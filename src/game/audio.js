@@ -1,6 +1,6 @@
 let audio = null;
 
-function ac() {
+export function ac() {
   audio = audio || new (window.AudioContext || window.webkitAudioContext)();
   if (audio.state === 'suspended') audio.resume();
   return audio;
